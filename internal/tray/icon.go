@@ -1,3 +1,5 @@
+//go:build windows
+
 // Package tray shows the Hyper Stack icon in the system tray (Windows).
 package tray
 
@@ -38,11 +40,11 @@ func icon() []byte {
 	_ = png.Encode(&pngBuf, img)
 
 	var ico bytes.Buffer
-	_ = binary.Write(&ico, binary.LittleEndian, []uint16{0, 1, 1}) // reserved, type=icon, count
-	ico.Write([]byte{n, n, 0, 0})                                  // width, height, colors, reserved
-	_ = binary.Write(&ico, binary.LittleEndian, []uint16{1, 32})   // planes, bpp
-	_ = binary.Write(&ico, binary.LittleEndian, uint32(pngBuf.Len()))
-	_ = binary.Write(&ico, binary.LittleEndian, uint32(22)) // data offset
+	_ = binary.Write(&ico, binary.LittleEndian, []uint16{0, 1, 1})    // reserved, type=icon, count
+	ico.Write([]byte{n, n, 0, 0})                                     // width, height, colors, reserved
+	_ = binary.Write(&ico, binary.LittleEndian, []uint16{1, 32})      // planes, bpp
+	_ = binary.Write(&ico, binary.LittleEndian, uint32(pngBuf.Len())) //nolint:gosec // a 32x32 PNG is far below 4 GiB
+	_ = binary.Write(&ico, binary.LittleEndian, uint32(22))           // data offset
 	ico.Write(pngBuf.Bytes())
 	return ico.Bytes()
 }

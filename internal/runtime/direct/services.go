@@ -206,7 +206,7 @@ func (r *Runtime) writeNginxConf() error {
 		if err != nil {
 			return fmt.Errorf("nginx install is incomplete (%s missing): run hyper install", f)
 		}
-		if err := os.WriteFile(filepath.Join(run, f), b, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(run, f), b, 0o644); err != nil { //nolint:gosec // site config file inside our own data directory
 			return err
 		}
 	}
@@ -237,7 +237,7 @@ func waitPort(ctx context.Context, port int, timeout time.Duration, what string)
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	for time.Now().Before(deadline) {
 		if c, err := net.DialTimeout("tcp", addr, 500*time.Millisecond); err == nil {
-			c.Close()
+			_ = c.Close()
 			return nil
 		}
 		select {

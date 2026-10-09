@@ -6,10 +6,27 @@ linters:
     - errorlint
     - misspell
   settings:
+    errcheck:
+      # Conventional "cannot meaningfully handle" cases. Everything else is checked.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*os.File).Close
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*archive/zip.ReadCloser).Close
+        - (*compress/gzip.Reader).Close
+        - (golang.org/x/sys/windows/registry.Key).Close
     gosec:
       excludes:
-        - G204   # exec of user-configured commands is the point of hyper.json setup/workers
-        - G304   # reading paths chosen by the user
-        - G301
+        - G104 # duplicate of errcheck, which is configured above
+        - G204 # exec of user-configured commands is the point of hyper.json setup/workers
+        - G301 # data dirs and files are user-level (0o755 / 0o644); secrets use 0o600
         - G302
-        - G306   # data files are user-level; permissions are deliberate
+        - G304 # reading paths chosen by the user
+        - G306
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [errcheck, gosec]

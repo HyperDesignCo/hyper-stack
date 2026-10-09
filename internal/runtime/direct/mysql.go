@@ -48,11 +48,11 @@ func (r *Runtime) EnsureMySQL(ctx context.Context) error {
 		if err := os.MkdirAll(filepath.Dir(data), 0o755); err != nil {
 			return err
 		}
-		os.RemoveAll(data)
+		_ = os.RemoveAll(data)
 		out, err := execCombined(filepath.Join(r.mysqlDir(), "bin", "mysqld.exe"), "",
 			"--defaults-file="+r.myCnf(), "--initialize-insecure", "--console")
 		if err != nil {
-			os.RemoveAll(data)
+			_ = os.RemoveAll(data)
 			return fmt.Errorf("MySQL initialization failed: %w\n%s", err, tail(out, 800))
 		}
 	}

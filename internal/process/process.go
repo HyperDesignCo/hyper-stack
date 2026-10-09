@@ -51,7 +51,10 @@ func Start(s Spec) error {
 		return fmt.Errorf("cannot start %s (%s): %w. See %s", s.Name, s.Bin, err, s.LogFile)
 	}
 	pid := cmd.Process.Pid
-	_ = cmd.Process.Release()
+	// Reap the child when it exits. Without this a stopped child stays a zombie
+	// for as long as this process lives (the dashboard), and kill(pid, 0) keeps
+	// reporting it alive on Unix.
+	go func() { _ = cmd.Wait() }()
 	return os.WriteFile(s.pidPath(), []byte(strconv.Itoa(pid)), 0o644)
 }
 
@@ -75,7 +78,7 @@ func Running(s Spec) bool {
 func Stop(s Spec) error {
 	pid := PID(s)
 	if pid == 0 || !alive(pid) {
-		os.Remove(s.pidPath())
+		_ = os.Remove(s.pidPath())
 		return nil
 	}
 	if err := terminate(pid); err != nil {
@@ -83,7 +86,7 @@ func Stop(s Spec) error {
 	}
 	for i := 0; i < 50; i++ {
 		if !alive(pid) {
-			os.Remove(s.pidPath())
+			_ = os.Remove(s.pidPath())
 			return nil
 		}
 		time.Sleep(100 * time.Millisecond)

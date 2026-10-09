@@ -3,6 +3,7 @@
 package selfinstall
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -106,7 +107,7 @@ func copyFile(src, dst string) error {
 	}
 	if _, err := io.Copy(out, in); err != nil {
 		out.Close()
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return err
 	}
 	if err := out.Close(); err != nil {
@@ -114,10 +115,10 @@ func copyFile(src, dst string) error {
 	}
 	// A running exe cannot be overwritten on Windows but can be renamed away.
 	old := dst + ".old"
-	os.Remove(old)
+	_ = os.Remove(old)
 	if _, err := os.Stat(dst); err == nil {
 		if err := os.Rename(dst, old); err != nil {
-			os.Remove(tmp)
+			_ = os.Remove(tmp)
 			return fmt.Errorf("cannot replace %s: %w. Close the Hyper Stack dashboard and try again", dst, err)
 		}
 	}
@@ -125,7 +126,7 @@ func copyFile(src, dst string) error {
 		_ = os.Rename(old, dst)
 		return err
 	}
-	os.Remove(old) // fails while the old exe is still running; harmless
+	_ = os.Remove(old) // fails while the old exe is still running; harmless
 	return nil
 }
 
@@ -138,7 +139,7 @@ func updateUserPath(f func(string) string) (bool, error) {
 	}
 	defer k.Close()
 	cur, _, err := k.GetStringValue("Path")
-	if err != nil && err != registry.ErrNotExist {
+	if err != nil && !errors.Is(err, registry.ErrNotExist) {
 		return false, err
 	}
 	next := f(cur)
@@ -158,7 +159,7 @@ func broadcastEnvChange() {
 	env, _ := syscall.UTF16PtrFromString("Environment")
 	var result uintptr
 	// HWND_BROADCAST, WM_SETTINGCHANGE, 0, "Environment", SMTO_ABORTIFHUNG, 5000ms
-	_, _, _ = proc.Call(0xffff, 0x001A, 0, uintptr(unsafe.Pointer(env)), 0x0002, 5000, uintptr(unsafe.Pointer(&result)))
+	_, _, _ = proc.Call(0xffff, 0x001A, 0, uintptr(unsafe.Pointer(env)), 0x0002, 5000, uintptr(unsafe.Pointer(&result))) //nolint:gosec // Win32 SendMessageTimeout needs raw pointers
 }
 
 func setAutostart(exe string, on bool) error {
@@ -168,7 +169,7 @@ func setAutostart(exe string, on bool) error {
 	}
 	defer k.Close()
 	if !on {
-		if err := k.DeleteValue(runName); err != nil && err != registry.ErrNotExist {
+		if err := k.DeleteValue(runName); err != nil && !errors.Is(err, registry.ErrNotExist) {
 			return err
 		}
 		return nil

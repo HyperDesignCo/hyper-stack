@@ -9,6 +9,7 @@ import (
 	"crypto/md5" //nolint:gosec // MySQL only publishes MD5; used as an integrity check, not security.
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
@@ -82,7 +83,7 @@ func File(ctx context.Context, url, dest string, algo Algo, want string, progres
 		return err
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, want) {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("checksum mismatch for %s: got %s, want %s. The file was not installed", url, got, want)
 	}
 	return os.Rename(tmp, dest)
@@ -147,7 +148,7 @@ func untar(archive, dir string, strip bool) error {
 	tr := tar.NewReader(gz)
 	for {
 		h, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {
@@ -164,14 +165,14 @@ func untar(archive, dir string, strip bool) error {
 		case tar.TypeDir:
 			err = os.MkdirAll(target, 0o755)
 		case tar.TypeReg:
-			err = writeFile(target, tr, os.FileMode(h.Mode))
+			err = writeFile(target, tr, h.FileInfo().Mode())
 		case tar.TypeSymlink:
 			// Reject links that escape the destination.
-			if _, _, e := safeTarget(dir, filepath.ToSlash(filepath.Join(filepath.Dir(h.Name), h.Linkname)), strip); e != nil {
+			if _, _, e := safeTarget(dir, filepath.ToSlash(filepath.Join(filepath.Dir(h.Name), h.Linkname)), strip); e != nil { //nolint:gosec // safeTarget rejects any entry that escapes the destination
 				return e
 			}
 			if err = os.MkdirAll(filepath.Dir(target), 0o755); err == nil {
-				os.Remove(target)
+				_ = os.Remove(target)
 				err = os.Symlink(h.Linkname, target)
 			}
 		}

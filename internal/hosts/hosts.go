@@ -80,10 +80,10 @@ func Update(path, backup string, domains []string) (bool, error) {
 	if out == string(data) {
 		return false, nil
 	}
-	if err := os.WriteFile(backup, data, 0o644); err != nil {
+	if err := os.WriteFile(backup, data, 0o644); err != nil { //nolint:gosec // path is the OS hosts file or a test file; backup is in our data dir
 		return false, fmt.Errorf("cannot back up hosts file: %w", err)
 	}
-	if err := os.WriteFile(path, []byte(out), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(out), 0o644); err != nil { //nolint:gosec // path is the OS hosts file or a test file
 		return false, fmt.Errorf("cannot write hosts file %s: %w. Run the elevated helper (hyper install)", path, err)
 	}
 	return true, nil

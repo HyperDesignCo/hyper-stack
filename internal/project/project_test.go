@@ -32,7 +32,7 @@ func TestParseReportsEveryBadField(t *testing.T) {
 }
 
 func TestParseRejectsUnknownField(t *testing.T) {
-	if _, err := Parse([]byte(`{"nmae":"x"}`)); err == nil {
+	if _, err := Parse([]byte(`{"nane":"x"}`)); err == nil {
 		t.Fatal("expected error for unknown field")
 	}
 }

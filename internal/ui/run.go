@@ -94,7 +94,7 @@ func Serve(p config.Paths, openBrowser bool) error {
 	if err := os.WriteFile(instanceFile(p), b, 0o600); err != nil {
 		return err
 	}
-	defer os.Remove(instanceFile(p))
+	defer func() { _ = os.Remove(instanceFile(p)) }()
 
 	open := func() { _ = OpenBrowser(srv.URL()) }
 	stopAll := func() {

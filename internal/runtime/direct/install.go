@@ -78,7 +78,7 @@ func (r *Runtime) PMADir() string { return r.pmaDir() }
 func (r *Runtime) FPMPort(version string, i int) int {
 	minor := 0
 	if parts := strings.Split(version, "."); len(parts) == 2 {
-		fmt.Sscanf(parts[1], "%d", &minor)
+		_, _ = fmt.Sscanf(parts[1], "%d", &minor)
 	}
 	return r.S.FPMBasePort + minor*10 + i
 }
@@ -233,9 +233,9 @@ func (r *Runtime) installArtifact(a Artifact, dest string) error {
 	}
 	r.Log("Unpacking %s", a.Name)
 	tmp := dest + ".tmp"
-	os.RemoveAll(tmp)
+	_ = os.RemoveAll(tmp)
 	if err := download.Unpack(cache, tmp, a.StripTop); err != nil {
-		os.RemoveAll(tmp)
+		_ = os.RemoveAll(tmp)
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(tmp, installedMarker), []byte(a.Checksum), 0o644); err != nil {

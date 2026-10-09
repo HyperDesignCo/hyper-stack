@@ -2,7 +2,9 @@
 
 package selfinstall
 
-import "fmt"
+import "errors"
+
+var errUnsupported = errors.New("self-install is only available on Windows in this version")
 
 // Options select the optional extras.
 type Options struct {
@@ -21,7 +23,7 @@ type Result struct {
 
 // Install is only implemented for Windows.
 func Install(dir string, opts Options) (Result, error) {
-	return Result{}, fmt.Errorf("self-install is only available on Windows in this version")
+	return Result{}, errUnsupported
 }
 
 // Remove is only implemented for Windows.

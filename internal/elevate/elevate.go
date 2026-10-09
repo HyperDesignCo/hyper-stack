@@ -57,7 +57,7 @@ func RunSetup(caPath string) error {
 	q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 	argStr := fmt.Sprintf(`_elevated setup "%s" "%s"`, caPath, user)
 	script := fmt.Sprintf("$p = Start-Process -FilePath %s -ArgumentList %s -Verb RunAs -Wait -PassThru; exit $p.ExitCode", q(exe), q(argStr))
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).CombinedOutput()
+	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).CombinedOutput() //nolint:gosec // arguments are this exe and the CA path, quoted for PowerShell
 	if err != nil {
 		return fmt.Errorf("the elevated setup did not complete (was the UAC prompt declined?): %w\n%s", err, strings.TrimSpace(string(out)))
 	}
@@ -98,7 +98,7 @@ func RunTeardown() error {
 	q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 	argStr := fmt.Sprintf(`_elevated teardown "%s"`, user)
 	script := fmt.Sprintf("$p = Start-Process -FilePath %s -ArgumentList %s -Verb RunAs -Wait -PassThru; exit $p.ExitCode", q(exe), q(argStr))
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).CombinedOutput()
+	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).CombinedOutput() //nolint:gosec // arguments are this exe and the current user name, quoted for PowerShell
 	if err != nil {
 		return fmt.Errorf("the elevated teardown did not complete: %w\n%s", err, strings.TrimSpace(string(out)))
 	}

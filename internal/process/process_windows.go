@@ -24,11 +24,11 @@ func detach(cmd *exec.Cmd) {
 }
 
 func alive(pid int) bool {
-	h, err := syscall.OpenProcess(processQueryLimited, false, uint32(pid))
+	h, err := syscall.OpenProcess(processQueryLimited, false, uint32(pid)) //nolint:gosec // process ids fit in uint32
 	if err != nil {
 		return false
 	}
-	defer syscall.CloseHandle(h)
+	defer func() { _ = syscall.CloseHandle(h) }()
 	var code uint32
 	if err := syscall.GetExitCodeProcess(h, &code); err != nil {
 		return false

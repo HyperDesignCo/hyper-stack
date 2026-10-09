@@ -72,7 +72,7 @@ func UpdateFile(dir string, values map[string]string) error {
 	} else {
 		backup := filepath.Join(dir, ".env.hyper-backup")
 		if _, e := os.Stat(backup); os.IsNotExist(e) {
-			if err := os.WriteFile(backup, data, 0o600); err != nil {
+			if err := os.WriteFile(backup, data, 0o600); err != nil { //nolint:gosec // .env inside the project folder the user chose
 				return err
 			}
 		}
@@ -86,7 +86,7 @@ func UpdateFile(dir string, values map[string]string) error {
 			return nil
 		}
 	}
-	return os.WriteFile(envPath, []byte(out), 0o600)
+	return os.WriteFile(envPath, []byte(out), 0o600) //nolint:gosec // .env inside the project folder the user chose
 }
 
 func isManaged(k string) bool {

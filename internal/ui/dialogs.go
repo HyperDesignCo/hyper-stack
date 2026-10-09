@@ -41,7 +41,7 @@ $f.Close()`)
 }
 
 func powershellDialog(ctx context.Context, script string) (string, error) {
-	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-NonInteractive", "-STA", "-WindowStyle", "Hidden", "-Command", script).Output()
+	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-NonInteractive", "-STA", "-WindowStyle", "Hidden", "-Command", script).Output() //nolint:gosec // fixed PowerShell script, no user input
 	if err != nil {
 		return "", fmt.Errorf("cannot open the file chooser: %w", err)
 	}
@@ -49,7 +49,7 @@ func powershellDialog(ctx context.Context, script string) (string, error) {
 }
 
 func osascript(ctx context.Context, expr string) (string, error) {
-	out, err := exec.CommandContext(ctx, "osascript", "-e", expr).Output()
+	out, err := exec.CommandContext(ctx, "osascript", "-e", expr).Output() //nolint:gosec // fixed AppleScript expression, no user input
 	if err != nil {
 		return "", nil // cancelled
 	}

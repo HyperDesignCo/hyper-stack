@@ -127,7 +127,7 @@ func (a *App) Install(ctx context.Context) error {
 
 func (a *App) requireInstalled() error {
 	if _, err := os.Stat(filepath.Join(a.P.Bin, "nginx", ".hyper-installed")); err != nil {
-		return fmt.Errorf("Hyper Stack is not installed on this machine. Run: hyper install")
+		return fmt.Errorf("the Hyper Stack runtime is not installed on this machine. Run: hyper install")
 	}
 	return nil
 }
@@ -290,7 +290,7 @@ func (a *App) waitSite(ctx context.Context, domain string) error {
 		d := tls.Dialer{Config: &tls.Config{ServerName: domain, InsecureSkipVerify: true}} //nolint:gosec // only inspecting which cert is served
 		if c, err := d.DialContext(ctx, "tcp", addr); err == nil {
 			state := c.(*tls.Conn).ConnectionState()
-			c.Close()
+			_ = c.Close()
 			if len(state.PeerCertificates) > 0 && state.PeerCertificates[0].VerifyHostname(domain) == nil {
 				return nil
 			}
@@ -469,7 +469,7 @@ func (a *App) Status(ctx context.Context) error {
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%d\t%d\n", s, state, st.Port, st.PID)
 	}
-	tw.Flush()
+	_ = tw.Flush()
 	fmt.Fprintln(a.Out)
 	tw = tabwriter.NewWriter(a.Out, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "PROJECT\tURL\tPHP\tDATABASE\tPATH")
