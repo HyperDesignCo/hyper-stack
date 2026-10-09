@@ -27,7 +27,7 @@ type instance struct {
 func instanceFile(p config.Paths) string { return filepath.Join(p.Run, "ui.json") }
 
 func spec(p config.Paths, exe string) process.Spec {
-	return process.Spec{Name: "ui", Bin: exe, Args: []string{"ui", "--serve"}, RunDir: p.Run, LogFile: filepath.Join(p.Logs, "ui.log")}
+	return process.Spec{Name: "ui", Bin: exe, Args: []string{"ui", "--serve"}, RunDir: p.Run, LogFile: filepath.Join(p.Logs, "ui.log"), NoTree: true}
 }
 
 // Launch makes sure the dashboard is running in the background and opens it.

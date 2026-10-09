@@ -37,8 +37,12 @@ func alive(pid int) bool {
 }
 
 // terminate kills the process tree (nginx and php-cgi spawn children).
-func terminate(pid int) error {
-	if err := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").Run(); err != nil {
+func terminate(pid int, tree bool) error {
+	args := []string{"/PID", strconv.Itoa(pid), "/F"}
+	if tree {
+		args = append(args, "/T")
+	}
+	if err := exec.Command("taskkill", args...).Run(); err != nil {
 		p, ferr := os.FindProcess(pid)
 		if ferr != nil {
 			return err

@@ -562,7 +562,7 @@ func (a *App) Uninstall(ctx context.Context, purge bool) error {
 		}
 	}
 	appDir := filepath.Join(a.P.Root, "app")
-	_ = process.Stop(process.Spec{Name: "ui", RunDir: a.P.Run}) // the dashboard, if running
+	_ = process.Stop(process.Spec{Name: "ui", RunDir: a.P.Run, NoTree: true}) // the dashboard, if running
 	_ = os.Remove(filepath.Join(a.P.Run, "ui.json"))
 	if err := selfinstall.Remove(appDir); err != nil {
 		return err

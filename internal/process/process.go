@@ -14,12 +14,15 @@ import (
 
 // Spec describes a background process.
 type Spec struct {
-	Name    string // used for the pid file and log file
-	Bin     string
-	Args    []string
-	Dir     string
-	Env     []string
-	RunDir  string // pid files
+	Name   string // used for the pid file and log file
+	Bin    string
+	Args   []string
+	Dir    string
+	Env    []string
+	RunDir string // pid files
+	// NoTree stops only this process, not the processes it started. Use it for
+	// the dashboard, whose children (MySQL, workers it launched) must keep running.
+	NoTree  bool
 	LogFile string
 }
 
@@ -81,7 +84,7 @@ func Stop(s Spec) error {
 		_ = os.Remove(s.pidPath())
 		return nil
 	}
-	if err := terminate(pid); err != nil {
+	if err := terminate(pid, !s.NoTree); err != nil {
 		return fmt.Errorf("cannot stop %s (pid %d): %w", s.Name, pid, err)
 	}
 	for i := 0; i < 50; i++ {
