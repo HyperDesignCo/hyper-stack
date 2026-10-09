@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyper Stack</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">H</span><span>Hyper Stack</span></div>
+  <div id="summary" class="summary"></div>
+  <div class="actions">
+    <button id="btn-add" class="btn primary">+ Add project</button>
+    <button id="btn-stopall" class="btn">Stop all services</button>
+  </div>
+</header>
+
+<main>
+  <div id="banner"></div>
+
+  <section>
+    <h2>Projects</h2>
+    <div id="projects" class="grid"></div>
+  </section>
+
+  <section class="cols">
+    <div class="card">
+      <h2>Services</h2>
+      <table id="services"><thead><tr><th>Service</th><th>State</th><th>Port</th><th>PID</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <div class="row between">
+        <h2>Health</h2>
+        <div>
+          <button id="btn-fix" class="btn small" hidden>Apply safe fixes</button>
+          <button id="btn-recheck" class="btn small">Re-check</button>
+        </div>
+      </div>
+      <ul id="health" class="health"></ul>
+    </div>
+  </section>
+
+  <section class="cols">
+    <div class="card">
+      <h2>Logs</h2>
+      <div class="row">
+        <select id="log-file"></select>
+        <button id="btn-log" class="btn small">Refresh</button>
+      </div>
+      <pre id="log-view" class="log small-log">Choose a log file.</pre>
+    </div>
+    <div class="card">
+      <h2>Ports</h2>
+      <p class="muted">Change these only if another program (for example Laragon) already uses 80, 443 or 3306. Stop all services, then start a project to apply.</p>
+      <form id="ports" class="ports">
+        <label>HTTP <input name="http_port" type="number" min="1" max="65535"></label>
+        <label>HTTPS <input name="https_port" type="number" min="1" max="65535"></label>
+        <label>MySQL <input name="mysql_port" type="number" min="1" max="65535"></label>
+        <button class="btn small" type="submit">Save</button>
+      </form>
+      <p id="datadir" class="muted mono"></p>
+    </div>
+  </section>
+</main>
+
+<div id="job" class="drawer" hidden>
+  <div class="drawer-head">
+    <strong id="job-title"></strong>
+    <span id="job-status" class="pill"></span>
+    <button id="job-close" class="btn small">Close</button>
+  </div>
+  <pre id="job-log" class="log"></pre>
+</div>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-box">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="row end">
+      <button id="modal-cancel" class="btn">Cancel</button>
+      <button id="modal-ok" class="btn primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hyper-design.com/schema/hyper.schema.json",
+  "title": "Hyper Stack project file",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "php", "database"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "domain": { "type": "string", "pattern": "\\.test$" },
+    "php": { "enum": ["8.2", "8.3", "8.4"] },
+    "extensions": { "type": "array", "items": { "type": "string" } },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "name"],
+      "properties": {
+        "engine": { "const": "mysql" },
+        "name": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "seed": { "type": "boolean", "default": false }
+      }
+    },
+    "services": { "type": "array", "items": { "enum": ["redis", "mailpit"] } },
+    "node": { "type": "string", "default": "20" },
+    "setup": { "type": "array", "items": { "type": "string" } },
+    "workers": { "type": "array", "items": { "type": "string" } }
+  }
+}

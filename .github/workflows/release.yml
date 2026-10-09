@@ -1,0 +1,39 @@
+name: release
+
+# Publish by pushing a tag:  git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        shell: pwsh
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Build, zip and checksum
+        shell: pwsh
+        run: ./scripts/build.ps1 -Version "${{ github.ref_name }}"
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            dist/hyper-windows-amd64.zip dist/checksums.txt dist/install.ps1 `
+            --title "Hyper Stack ${{ github.ref_name }}" --generate-notes

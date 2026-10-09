@@ -1,0 +1,15 @@
+version: "2"
+linters:
+  default: standard
+  enable:
+    - gosec
+    - errorlint
+    - misspell
+  settings:
+    gosec:
+      excludes:
+        - G204   # exec of user-configured commands is the point of hyper.json setup/workers
+        - G304   # reading paths chosen by the user
+        - G301
+        - G302
+        - G306   # data files are user-level; permissions are deliberate

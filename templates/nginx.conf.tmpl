@@ -1,0 +1,23 @@
+# Managed by Hyper Stack. Regenerated on every start.
+worker_processes 1;
+error_log {{.LogDir}}/nginx-error.log;
+pid {{.PidFile}};
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include {{.ConfDir}}/mime.types;
+    default_type application/octet-stream;
+    sendfile off;
+    keepalive_timeout 65;
+    server_names_hash_bucket_size 128;
+    types_hash_max_size 2048;
+
+{{range .Upstreams}}    upstream {{.Name}} {
+{{range .Servers}}        server {{.}};
+{{end}}    }
+{{end}}
+    include {{.SitesDir}}/*.conf;
+}

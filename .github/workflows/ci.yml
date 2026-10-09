@@ -1,0 +1,54 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64, ext: .exe }
+          - { goos: darwin, goarch: arm64, ext: "" }
+          - { goos: darwin, goarch: amd64, ext: "" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build -o hyper-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/hyper
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hyper-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: hyper-*

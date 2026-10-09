@@ -1,0 +1,27 @@
+; Managed by Hyper Stack. Regenerated on every hyper install.
+; TODO: confirm with production
+[PHP]
+memory_limit = 512M
+upload_max_filesize = 64M
+post_max_size = 64M
+max_execution_time = 120
+max_input_vars = 5000
+date.timezone = UTC
+display_errors = On
+error_reporting = E_ALL
+log_errors = On
+error_log = "{{.LogFile}}"
+cgi.force_redirect = 0
+cgi.fix_pathinfo = 1
+extension_dir = "{{.ExtDir}}"
+{{if .CABundle}}curl.cainfo = "{{.CABundle}}"
+openssl.cafile = "{{.CABundle}}"
+{{end}}
+{{range .Extensions}}extension={{.}}
+{{end}}
+zend_extension=opcache
+
+[opcache]
+opcache.enable = 1
+opcache.validate_timestamps = 1
+opcache.revalidate_freq = 1

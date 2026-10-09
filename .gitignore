@@ -1,0 +1,21 @@
+# build output
+/bin/
+/dist/
+
+# local test artifacts
+*.exe
+*.test
+*.out
+*.tmp
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code local state
+.claude/
+
+# machine-specific manual test scripts (reference local project paths)
+/scripts/dev/
