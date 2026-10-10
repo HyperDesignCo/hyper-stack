@@ -19,3 +19,4 @@ Thumbs.db
 
 # machine-specific manual test scripts (reference local project paths)
 /scripts/dev/
+.scratch/

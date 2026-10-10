@@ -53,3 +53,134 @@ jobs:
         with:
           name: hyper-${{ matrix.goos }}-${{ matrix.goarch }}
           path: hyper-*
+
+  # The real thing on a real Mac: install into a fresh folder (real downloads, real
+  # certificate trust, real /etc/hosts edit), serve a project, switch PHP, move the
+  # install, uninstall. Nothing here is mocked.
+  macos-install:
+    needs: test
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      HS: ${{ runner.temp }}/hs
+      HS2: ${{ runner.temp }}/hs2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Machine
+        run: |
+          sw_vers
+          uname -m
+          df -h "$RUNNER_TEMP" | tail -1
+
+      - name: Build
+        run: go build -o hyper ./cmd/hyper
+
+      - name: Install into a fresh folder
+        run: ./hyper install --dir "$HS" --http-port 8080 --https-port 8443 --mysql-port 3307
+
+      - name: What the install put on the machine
+        run: |
+          ls "$HS" "$HS/bin"
+          echo "--- trusted Hyper Stack certificates in the system keychain:"
+          security find-certificate -a -Z -c "Hyper Stack Local CA" /Library/Keychains/System.keychain | grep -E "SHA-1 hash|labl" || true
+          echo "--- /etc/hosts owner:"
+          ls -l /etc/hosts
+          echo "--- mysqld deployment target (the macOS it needs):"
+          otool -l "$HS/bin/mysql/bin/mysqld" | grep -A3 -E "LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX" | head -8 || true
+
+      - name: Start a project that has no configuration
+        run: |
+          mkdir -p "$HS/www/blog"
+          cat > "$HS/www/blog/index.php" <<'PHP'
+          <?php
+          echo "PHP " . PHP_VERSION . "\n";
+          $pdo = new PDO('mysql:host=127.0.0.1;port=3307;dbname=blog', 'root', '');
+          echo "MySQL " . $pdo->query('select version()')->fetchColumn() . " as root with an empty password\n";
+          PHP
+          ./hyper up --all
+          ./hyper status
+
+      - name: The site answers over trusted HTTPS
+        run: |
+          /usr/bin/curl -sS https://blog.test:8443/ | tee out.txt
+          grep -q "PHP 8.3" out.txt
+          grep -q "MySQL 8.0" out.txt
+          /usr/bin/curl -sSI http://blog.test:8080/ | tee redir.txt
+          grep -qi "location: https://blog.test:8443" redir.txt
+          code=$(/usr/bin/curl -sS -o /dev/null -w "%{http_code}" https://phpmyadmin.test:8443/)
+          echo "phpMyAdmin HTTP $code"
+          [ "$code" = 200 ]
+
+      - name: Switch PHP version
+        run: |
+          ./hyper php 8.1 blog
+          /usr/bin/curl -sS https://blog.test:8443/ | tee out81.txt
+          grep -q "PHP 8.1" out81.txt
+          ./hyper php 8.3 blog
+          /usr/bin/curl -sS https://blog.test:8443/ | grep -q "PHP 8.3"
+
+      - name: A PHP that does not exist on macOS is refused clearly
+        run: |
+          if ./hyper php 7.4 blog 2> err.txt; then echo "7.4 was accepted"; exit 1; fi
+          cat err.txt
+          grep -q "not available on macOS" err.txt
+
+      - name: Doctor and connection details
+        run: |
+          ./hyper doctor
+          ./hyper db:info
+
+      - name: Command line tools of the project
+        run: |
+          # composer and node come from the install, not from the machine
+          export PATH="$HS/bin/node/bin:$PATH"
+          "$HS/bin/php/8.3/php" -v | head -1
+          "$HS/bin/php/8.3/php" "$HS/bin/composer/composer.phar" --version
+          node --version
+
+      - name: Import a dump
+        run: |
+          printf 'CREATE TABLE t (id INT PRIMARY KEY, name VARCHAR(20));\nINSERT INTO t VALUES (1,"ahmed"),(2,"sara");\n' > dump.sql
+          cd "$HS/www/blog"
+          "$GITHUB_WORKSPACE/hyper" db:import "$GITHUB_WORKSPACE/dump.sql"
+          "$HS/bin/mysql/bin/mysql" --defaults-file="$HS/run/my.cnf" -uroot -N -e "select count(*) from blog.t" | grep -q '^2$'
+
+      - name: Self-install, autostart and PATH
+        run: |
+          ./hyper self-install --autostart
+          grep -q "hyper-stack" "$HOME/.zprofile"
+          test -f "$HOME/Library/LaunchAgents/com.hyperdesign.hyperstack.plist"
+          ./hyper autostart
+          ./hyper self-install --remove
+          ! grep -q "hyper-stack" "$HOME/.zprofile"
+          test ! -f "$HOME/Library/LaunchAgents/com.hyperdesign.hyperstack.plist"
+
+      - name: Move the whole install to another folder
+        run: |
+          ./hyper move "$HS2"
+          test ! -d "$HS"
+          test -f "$HS2/www/blog/index.php"
+          /usr/bin/curl -sS https://blog.test:8443/ | tee outmoved.txt
+          grep -q "PHP 8.3" outmoved.txt
+          # the database moved with it
+          "$HS2/bin/mysql/bin/mysql" --defaults-file="$HS2/run/my.cnf" -uroot -N -e "select count(*) from blog.t" | grep -q '^2$'
+
+      - name: Uninstall keeps the projects
+        run: |
+          ./hyper uninstall --purge
+          test -f "$HS2/www/blog/index.php"
+          test ! -d "$HS2/bin"
+          if security find-certificate -a -Z -c "Hyper Stack Local CA" /Library/Keychains/System.keychain | grep -q "SHA-1 hash"; then echo "certificate still trusted"; exit 1; fi
+
+      - name: Logs
+        if: always()
+        run: |
+          for d in "$HS" "$HS2"; do
+            [ -d "$d/logs" ] || continue
+            for f in "$d"/logs/*; do echo "=================== $f"; tail -n 60 "$f" 2>/dev/null; done
+          done
+          echo "=================== ~/Library/Application Support/HyperStack"
+          ls -laR "$HOME/Library/Application Support/HyperStack" 2>/dev/null | head -40

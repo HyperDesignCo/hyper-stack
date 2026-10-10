@@ -24,7 +24,7 @@ func (r *Runtime) writeMyCnf() error {
 	}
 	cnf, err := templates.Render("my.cnf.tmpl", map[string]any{
 		"Port": r.S.MySQLPort, "BaseDir": filepath.ToSlash(r.mysqlDir()), "DataDir": filepath.ToSlash(r.mysqlData()),
-		"LogFile": filepath.ToSlash(filepath.Join(r.P.Logs, "mysql-error.log")),
+		"LogFile": filepath.ToSlash(filepath.Join(r.P.Logs, "mysql-error.log")), "Socket": r.mysqlSocket(),
 	})
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (r *Runtime) writeMyCnf() error {
 // EnsureMySQL initializes the data directory, starts MySQL and makes sure the
 // root password is the one stored in the credential store.
 func (r *Runtime) EnsureMySQL(ctx context.Context) error {
-	if err := r.requireWindows(); err != nil {
+	if err := r.requireSupported(); err != nil {
 		return err
 	}
 	if err := r.writeMyCnf(); err != nil {
@@ -48,7 +48,7 @@ func (r *Runtime) EnsureMySQL(ctx context.Context) error {
 			return err
 		}
 		_ = os.RemoveAll(data)
-		out, err := execCombined(filepath.Join(r.mysqlDir(), "bin", "mysqld.exe"), "",
+		out, err := execCombined(r.mysqlBin("mysqld"), "",
 			"--defaults-file="+r.myCnf(), "--initialize-insecure", "--console")
 		if err != nil {
 			_ = os.RemoveAll(data)
@@ -93,7 +93,7 @@ func (r *Runtime) CreateDatabase(ctx context.Context, name string) (bool, error)
 
 // ImportSQL streams SQL into a database.
 func (r *Runtime) ImportSQL(ctx context.Context, db string, in io.Reader) error {
-	cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysql.exe"), importArgs(r.myCnf(), db)...)
+	cmd := exec.CommandContext(ctx, r.mysqlBin("mysql"), importArgs(r.myCnf(), db)...)
 	if pw := secrets.RootPassword(); pw != "" {
 		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)
 	}
@@ -130,7 +130,7 @@ func (r *Runtime) BackupDatabase(ctx context.Context, db, file string) error {
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysqldump.exe"),
+	cmd := exec.CommandContext(ctx, r.mysqlBin("mysqldump"),
 		"--defaults-file="+r.myCnf(), "-uroot", "--single-transaction", "--routines", "--triggers", "--no-tablespaces",
 		"--default-character-set=utf8mb4", "--result-file="+file, db)
 	if pw := secrets.RootPassword(); pw != "" {
@@ -162,7 +162,7 @@ func (r *Runtime) mysql(ctx context.Context, pw, extra, sql string) (string, err
 		args = append(args, extra)
 	}
 	args = append(args, "-e", sql)
-	cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysql.exe"), args...)
+	cmd := exec.CommandContext(ctx, r.mysqlBin("mysql"), args...)
 	if pw != "" {
 		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)
 	}
@@ -177,7 +177,7 @@ func (r *Runtime) mysql(ctx context.Context, pw, extra, sql string) (string, err
 // StopMySQL shuts MySQL down cleanly if possible.
 func (r *Runtime) StopMySQL(ctx context.Context) error {
 	if process.Running(r.mysqlSpec()) {
-		cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysqladmin.exe"),
+		cmd := exec.CommandContext(ctx, r.mysqlBin("mysqladmin"),
 			"--defaults-file="+r.myCnf(), "-uroot", "shutdown")
 		if pw := secrets.RootPassword(); pw != "" {
 			cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)

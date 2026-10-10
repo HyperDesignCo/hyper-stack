@@ -62,6 +62,14 @@ func Home() (string, error) {
 	return "", fmt.Errorf("unsupported OS %s: Hyper Stack supports Windows and macOS", runtime.GOOS)
 }
 
+// ExeName is the file name of the hyper program on this OS.
+func ExeName() string {
+	if runtime.GOOS == "windows" {
+		return "hyper.exe"
+	}
+	return "hyper"
+}
+
 // AppDir is where self-install puts hyper.exe. It never moves with the install folder.
 func AppDir() (string, error) {
 	h, err := Home()

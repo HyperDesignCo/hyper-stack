@@ -241,7 +241,7 @@ func (a *App) Install(ctx context.Context) error {
 		return err
 	}
 	if elevate.SetupNeeded(caPath) {
-		a.say("Windows will ask for administrator permission once, to trust the local certificate and allow hosts-file edits.")
+		a.say("%s once, to trust the local certificate and allow hosts-file edits.", elevate.AdminPrompt())
 		if err := elevate.RunSetup(caPath); err != nil {
 			return err
 		}
@@ -511,41 +511,6 @@ func (a *App) checkPorts() error {
 
 // ---------------------------------------------------------------- shell & workers
 
-func (a *App) shellEnv(s Site) []string {
-	composerDir := filepath.Join(a.P.Run, "shims", s.PHP)
-	_ = os.MkdirAll(composerDir, 0o755)
-	shim := "@echo off\r\n\"" + a.RT.PHPExe(s.PHP) + "\" \"" + a.RT.ComposerPhar() + "\" %*\r\n"
-	_ = os.WriteFile(filepath.Join(composerDir, "composer.bat"), []byte(shim), 0o644)
-	path := strings.Join([]string{filepath.Dir(a.RT.PHPExe(s.PHP)), a.RT.NodeDir(), composerDir, os.Getenv("PATH")}, string(os.PathListSeparator))
-	return append(os.Environ(), "PATH="+path, "COMPOSER_HOME="+filepath.Join(a.P.Root, "composer-home"))
-}
-
-func (a *App) runShell(ctx context.Context, s Site, command string) error {
-	cmd := exec.CommandContext(ctx, "cmd", "/C", command)
-	cmd.Dir = s.Root
-	cmd.Env = a.shellEnv(s)
-	cmd.Stdout, cmd.Stderr = a.Out, a.Out
-	return cmd.Run()
-}
-
-func (a *App) workerSpec(s Site, i int, command string) process.Spec {
-	return process.Spec{
-		Name: workerName(s.Name, i), Bin: "cmd", Args: []string{"/C", command}, Dir: s.Root,
-		Env: envDelta(a.shellEnv(s)), RunDir: a.P.Run, LogFile: filepath.Join(a.P.Logs, fmt.Sprintf("%s-worker-%d.log", s.Name, i)),
-	}
-}
-
-// envDelta keeps only PATH and COMPOSER_HOME (process.Start appends to os.Environ).
-func envDelta(env []string) []string {
-	var out []string
-	for _, e := range env {
-		if strings.HasPrefix(strings.ToUpper(e), "PATH=") || strings.HasPrefix(e, "COMPOSER_HOME=") {
-			out = append(out, e)
-		}
-	}
-	return out
-}
-
 // ---------------------------------------------------------------- down
 
 // Down stops the project's workers; with all, also the shared services.
@@ -700,7 +665,7 @@ func (a *App) Uninstall(ctx context.Context, purge bool) error {
 		a.say("Removed the Hyper Stack block from the hosts file")
 	}
 	if elevate.CATrustedByName() || elevate.HostsWritable() {
-		a.say("Windows will ask for administrator permission to remove the certificate trust and hosts permission.")
+		a.say("%s to remove the certificate trust and hosts permission.", elevate.AdminPrompt())
 		if err := elevate.RunTeardown(); err != nil {
 			return err
 		}
@@ -759,6 +724,11 @@ func purgeDataDir(root string, say func(string, ...any)) error {
 		}
 	}
 	for _, p := range later {
+		if runtime.GOOS != "windows" {
+			// only Windows cannot delete a program that is running
+			_ = os.RemoveAll(p)
+			continue
+		}
 		cmd := exec.Command("cmd", "/C", fmt.Sprintf(`ping -n 4 127.0.0.1 >nul & rmdir /S /Q "%s"`, p))
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("could not schedule removal of %s: delete it manually after closing this window", p)

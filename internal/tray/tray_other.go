@@ -2,14 +2,17 @@
 
 package tray
 
-import "os"
-import "os/signal"
+import (
+	"os"
+	"os/signal"
+	"syscall"
+)
 
-// Run has no tray on this platform yet: it just blocks until interrupted.
+// Run has no menu-bar icon on this platform yet: it keeps the dashboard serving
+// until it is told to stop. (The browser is opened by the caller, when asked to.)
 func Run(open, stopAll func(), onQuit func()) {
-	open()
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 	onQuit()
 }

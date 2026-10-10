@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/hyperdesign/hyper-stack/internal/config"
@@ -43,13 +42,6 @@ func (r *Runtime) Paths() rt.RuntimePaths {
 	return rt.RuntimePaths{Data: r.P.Root, Logs: r.P.Logs, Config: r.P.Run}
 }
 
-func (r *Runtime) requireWindows() error {
-	if runtime.GOOS != "windows" {
-		return fmt.Errorf("the macOS runtime (static PHP + Caddy) is not implemented yet; only Windows is supported in this build")
-	}
-	return nil
-}
-
 // Directory helpers.
 func (r *Runtime) nginxDir() string       { return filepath.Join(r.P.Bin, "nginx") }
 func (r *Runtime) mysqlDir() string       { return filepath.Join(r.P.Bin, "mysql") }
@@ -62,11 +54,20 @@ func (r *Runtime) mysqlData() string      { return filepath.Join(r.P.Root, "data
 func (r *Runtime) nginxRun() string       { return filepath.Join(r.P.Run, "nginx") }
 
 // PHPExe and PHPCgi return php binaries for a version.
-func (r *Runtime) PHPExe(v string) string { return filepath.Join(r.phpDir(v), "php.exe") }
+func (r *Runtime) PHPExe(v string) string { return filepath.Join(r.phpDir(v), binName("php")) }
 func (r *Runtime) phpCgi(v string) string { return filepath.Join(r.phpDir(v), "php-cgi.exe") }
 
-// NodeDir returns the Node install directory (contains node.exe and npm.cmd).
+// NodeDir returns the Node install directory (contains node.exe and npm.cmd on Windows).
 func (r *Runtime) NodeDir() string { return r.nodeDir() }
+
+// NodeBinDir is the folder to put on PATH to run node and npm: the install
+// folder itself on Windows, its bin/ on macOS.
+func (r *Runtime) NodeBinDir() string {
+	if isMac() {
+		return filepath.Join(r.nodeDir(), "bin")
+	}
+	return r.nodeDir()
+}
 
 // ComposerPhar returns the composer.phar path.
 func (r *Runtime) ComposerPhar() string { return r.composerPhar() }
@@ -97,17 +98,23 @@ func UpstreamName(version string) string { return "php" + strings.ReplaceAll(ver
 
 // EnsureInstalled downloads and configures everything in spec.
 func (r *Runtime) EnsureInstalled(ctx context.Context, spec rt.StackSpec) error {
-	if err := r.requireWindows(); err != nil {
+	if err := r.requireSupported(); err != nil {
 		return err
 	}
 	if err := r.P.Ensure(); err != nil {
 		return err
 	}
-	if err := r.installArtifact(Nginx(), r.nginxDir()); err != nil {
-		return err
-	}
-	if err := r.installArtifact(MySQLWindows(), r.mysqlDir()); err != nil {
-		return err
+	if isMac() {
+		if err := r.ensureMacTools(ctx, spec); err != nil {
+			return err
+		}
+	} else {
+		if err := r.installArtifact(Nginx(), r.nginxDir()); err != nil {
+			return err
+		}
+		if err := r.installArtifact(MySQLWindows(), r.mysqlDir()); err != nil {
+			return err
+		}
 	}
 	if !fileExists(r.caBundle()) {
 		ca, err := CABundle(ctx)
@@ -127,7 +134,7 @@ func (r *Runtime) EnsureInstalled(ctx context.Context, spec rt.StackSpec) error 
 			return err
 		}
 	}
-	if !r.isInstalled(r.nodeDir()) {
+	if !isMac() && !r.isInstalled(r.nodeDir()) {
 		node, err := NodeWindows(ctx, spec.NodeVersion)
 		if err != nil {
 			return err
@@ -156,8 +163,11 @@ func (r *Runtime) EnsureInstalled(ctx context.Context, spec rt.StackSpec) error 
 // EnsurePHP installs a PHP version and (re)writes its php.ini with the base
 // extensions plus extra ones. Extra extensions must be bundled with PHP.
 func (r *Runtime) EnsurePHP(ctx context.Context, version string, extra []string) (rt.PHPInstall, error) {
-	if err := r.requireWindows(); err != nil {
+	if err := r.requireSupported(); err != nil {
 		return rt.PHPInstall{}, err
+	}
+	if isMac() {
+		return r.ensurePHPMac(version, extra)
 	}
 	if !r.isInstalled(r.phpDir(version)) {
 		art, err := PHPWindows(ctx, version)
@@ -181,6 +191,10 @@ func (r *Runtime) writePHPIni(version string, extra []string) error {
 	if err != nil {
 		return err
 	}
+	isExtra := map[string]bool{}
+	for _, e := range extra {
+		isExtra[e] = true
+	}
 	seen := map[string]bool{}
 	var enable []string
 	for _, e := range append(append([]string{}, BaseExtensions...), extra...) {
@@ -202,6 +216,16 @@ func (r *Runtime) writePHPIni(version string, extra []string) error {
 		if builtin[strings.ToLower(e)] {
 			continue
 		}
+		if !isExtra[e] {
+			// Something we enable by default that this build lacks (the macOS
+			// static build has no pdo_sqlite). Not worth blocking the install for.
+			r.Log("PHP %s has no %s extension; carrying on without it", version, e)
+			continue
+		}
+		if isMac() {
+			return fmt.Errorf("PHP %s extension %q is not included in the static PHP build for macOS. "+
+				"Remove it from \"extensions\" in hyper.json or ask the platform team to add support", version, e)
+		}
 		return fmt.Errorf("PHP %s extension %q is not bundled with the official Windows build. "+
 			"Remove it from \"extensions\" in hyper.json or ask the platform team to add support", version, e)
 	}
@@ -215,11 +239,12 @@ func (r *Runtime) writePHPIni(version string, extra []string) error {
 		"CABundle":   r.caBundle(),
 		"Extensions": enable,
 		"OpcacheDir": filepath.ToSlash(opcacheDir),
+		"Static":     isMac(), // a static PHP has its extensions built in
 	})
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "php.ini"), []byte(ini), 0o644)
+	return os.WriteFile(filepath.Join(dir, "php.ini"), []byte(ini), 0o644) //nolint:gosec // config inside our own data directory
 }
 
 // builtinExtensions lists extensions compiled into php.exe.

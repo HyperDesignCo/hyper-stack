@@ -1,0 +1,13 @@
+; Managed by Hyper Stack. Regenerated on every start.
+[global]
+pid = "{{.Pid}}"
+error_log = "{{.ErrorLog}}"
+daemonize = no
+
+[www]
+listen = 127.0.0.1:{{.Port}}
+pm = static
+pm.max_children = {{.Children}}
+pm.max_requests = 500
+clear_env = no
+catch_workers_output = yes

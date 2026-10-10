@@ -92,7 +92,11 @@ func (a *App) State(ctx context.Context) State {
 	nginxUp := false
 	for _, s := range svcs {
 		if info, err := a.RT.ServiceStatus(ctx, s); err == nil {
-			st.Services = append(st.Services, ServiceInfo{Name: string(s), Running: info.Running, Port: info.Port, PID: info.PID})
+			name := string(s)
+			if s == rt.Nginx {
+				name = a.RT.WebName()
+			}
+			st.Services = append(st.Services, ServiceInfo{Name: name, Running: info.Running, Port: info.Port, PID: info.PID})
 			if info.Running {
 				st.AnyRunning = true
 			}

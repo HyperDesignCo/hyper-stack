@@ -14,7 +14,7 @@ import (
 func selfInstallCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "self-install",
-		Short: "Install hyper.exe for this user: PATH, Start menu shortcut, optional start at login",
+		Short: "Install hyper for this user: PATH, a launcher, optional start at login",
 		Long: `Copies hyper.exe to %LOCALAPPDATA%\HyperStack\app, adds that folder to your user PATH,
 and creates a Start menu shortcut for the dashboard. No administrator rights needed.
 Open a new terminal afterwards so the new PATH is picked up.`,

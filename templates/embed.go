@@ -7,7 +7,7 @@ import (
 	"text/template"
 )
 
-//go:embed php.ini.tmpl my.cnf.tmpl nginx.conf.tmpl pma.config.inc.php
+//go:embed php.ini.tmpl php-fpm.conf.tmpl my.cnf.tmpl nginx.conf.tmpl pma.config.inc.php
 var fs embed.FS
 
 // Render executes the named template with data.

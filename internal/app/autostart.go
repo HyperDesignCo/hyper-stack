@@ -24,10 +24,10 @@ func (a *App) SetLoginAutostart(on bool) error {
 	if err != nil {
 		return err
 	}
-	exe := filepath.Join(dir, "hyper.exe")
+	exe := filepath.Join(dir, config.ExeName())
 	if on {
 		if _, err := os.Stat(exe); err != nil {
-			return fmt.Errorf("hyper.exe is not installed for your user yet. Run: hyper self-install --autostart")
+			return fmt.Errorf("hyper is not installed for your user yet. Run: hyper self-install --autostart")
 		}
 	}
 	return selfinstall.SetAutostart(exe, on)

@@ -15,6 +15,14 @@ import (
 	"strings"
 )
 
+// AdminPrompt describes, for messages, the one-time permission request on this OS.
+func AdminPrompt() string {
+	if runtime.GOOS == "darwin" {
+		return "macOS will ask for your password"
+	}
+	return "Windows will ask for administrator permission"
+}
+
 // CAName is the CA's common name, used to find it in the trust store.
 const CAName = "Hyper Stack Local CA"
 
@@ -55,6 +63,9 @@ func Thumbprint(pemPath string) (string, error) {
 // name) is in the machine trust store. A new install folder creates a new CA,
 // which must be trusted again.
 func CATrusted(caPath string) bool {
+	if runtime.GOOS == "darwin" {
+		return macTrusted(caPath)
+	}
 	if runtime.GOOS != "windows" {
 		return false
 	}
@@ -67,6 +78,9 @@ func CATrusted(caPath string) bool {
 
 // CATrustedByName reports whether any CA with our name is trusted (used by uninstall).
 func CATrustedByName() bool {
+	if runtime.GOOS == "darwin" {
+		return len(macSHA1s()) > 0
+	}
 	if runtime.GOOS != "windows" {
 		return false
 	}
@@ -78,8 +92,11 @@ func SetupNeeded(caPath string) bool { return !HostsWritable() || !CATrusted(caP
 
 // RunSetup relaunches this executable elevated (one UAC prompt) to run Do("setup", ...).
 func RunSetup(caPath string) error {
+	if runtime.GOOS == "darwin" {
+		return macRunSetup(caPath)
+	}
 	if runtime.GOOS != "windows" {
-		return fmt.Errorf("elevation is only implemented for Windows in this build")
+		return fmt.Errorf("elevation is only implemented for Windows and macOS")
 	}
 	exe, err := os.Executable()
 	if err != nil {
@@ -128,6 +145,9 @@ func Do(op string, args []string) error {
 
 // RunTeardown removes the CA and the hosts permission (one UAC prompt).
 func RunTeardown() error {
+	if runtime.GOOS == "darwin" {
+		return macRunTeardown()
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return err

@@ -13,14 +13,14 @@ log_errors = On
 error_log = "{{.LogFile}}"
 cgi.force_redirect = 0
 cgi.fix_pathinfo = 1
-extension_dir = "{{.ExtDir}}"
-{{if .CABundle}}curl.cainfo = "{{.CABundle}}"
+{{if not .Static}}extension_dir = "{{.ExtDir}}"
+{{end}}{{if .CABundle}}curl.cainfo = "{{.CABundle}}"
 openssl.cafile = "{{.CABundle}}"
 {{end}}
 {{range .Extensions}}extension={{.}}
 {{end}}
-zend_extension=opcache
-
+{{if not .Static}}zend_extension=opcache
+{{end}}
 [opcache]
 ; Windows names OPcache's shared memory per PHP build, so a second PHP of the same
 ; version (another install, Laragon) cannot map it ("unusable due to ASLR").
