@@ -70,7 +70,7 @@ Open a new terminal afterwards so the new PATH is picked up.`,
 			fmt.Println("The dashboard will start when you log in.")
 		}
 		if wasRunning {
-			if _, err := ui.Launch(p, res.ExePath, false); err != nil {
+			if _, err := ui.Launch(p, res.ExePath, false, false); err != nil {
 				return err
 			}
 		}

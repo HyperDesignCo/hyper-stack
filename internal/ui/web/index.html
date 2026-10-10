@@ -52,6 +52,12 @@
       </div>
       <pre id="log-view" class="log small-log">Choose a log file.</pre>
     </div>
+    <div class="card" id="startup-card">
+      <h2>Startup</h2>
+      <label class="switch"><input type="checkbox" id="login-autostart"><span>Start Hyper Stack when I sign in to Windows</span></label>
+      <p class="muted">The tray icon and this dashboard start by themselves. Then every project with <b>Start at login</b> switched on starts too, and nginx, PHP and MySQL start as those projects need them.</p>
+      <p class="muted" id="autostart-projects"></p>
+    </div>
     <div class="card">
       <h2>Ports</h2>
       <p class="muted">Change these only if another program (for example Laragon) already uses 80, 443 or 3306. Stop all services, then start a project to apply.</p>

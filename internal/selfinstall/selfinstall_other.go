@@ -29,5 +29,8 @@ func Install(dir string, opts Options) (Result, error) {
 // Remove is only implemented for Windows.
 func Remove(dir string) error { return nil }
 
+// SetAutostart is only implemented for Windows.
+func SetAutostart(exe string, on bool) error { return errUnsupported }
+
 // AutostartEnabled is always false off Windows.
 func AutostartEnabled() bool { return false }

@@ -43,6 +43,7 @@ type SiteInfo struct {
 	RootExists bool         `json:"root_exists"`
 	SetupDone  bool         `json:"setup_done"`
 	Workers    []WorkerInfo `json:"workers"`
+	Autostart  bool         `json:"autostart"`  // starts when Hyper Stack starts at login
 	Discovered bool         `json:"discovered"` // a www folder that was never started
 	Auto       bool         `json:"auto"`       // configured from the folder (no hyper.json)
 	Error      string       `json:"error,omitempty"`
@@ -51,7 +52,8 @@ type SiteInfo struct {
 // State is everything the dashboard shows.
 type State struct {
 	Installed   bool            `json:"installed"`
-	Configured  bool            `json:"configured"` // an install folder has been chosen
+	LoginStart  bool            `json:"login_autostart"` // Hyper Stack starts when you sign in to Windows
+	Configured  bool            `json:"configured"`      // an install folder has been chosen
 	DefaultDir  string          `json:"default_dir"`
 	WWW         string          `json:"www"`
 	DataDir     string          `json:"data_dir"`
@@ -74,7 +76,7 @@ func (a *App) State(ctx context.Context) State {
 		Sites:     []SiteInfo{},
 		LogFiles:  a.logFiles(),
 		Installed: a.requireInstalled() == nil, Configured: a.P.Configured,
-		DefaultDir: config.DefaultInstallDir(),
+		DefaultDir: config.DefaultInstallDir(), LoginStart: a.LoginAutostart(),
 	}
 	if a.P.Configured {
 		st.WWW = a.P.WWW
@@ -100,7 +102,8 @@ func (a *App) State(ctx context.Context) State {
 	}
 	for _, s := range a.sites() {
 		si := SiteInfo{Name: s.Name, Domain: s.Domain, URL: a.S.SiteURL(s.Domain), Root: s.Root, PHP: s.PHP,
-			Database: s.Database, SetupDone: s.SetupDone, Workers: []WorkerInfo{}, Auto: s.Auto}
+			Database: s.Database, SetupDone: s.SetupDone, Workers: []WorkerInfo{}, Auto: s.Auto,
+			Autostart: a.IsProjectAutostart(s.Root)}
 		_, err := os.Stat(s.Root)
 		si.RootExists = err == nil
 		si.Online = nginxUp && a.RT.SiteRegistered(s.Name)
@@ -114,7 +117,7 @@ func (a *App) State(ctx context.Context) State {
 			st.Sites = append(st.Sites, SiteInfo{
 				Name: d.Name, Domain: d.Domain, Root: d.Root, PHP: d.PHP, Database: d.Database,
 				URL: a.S.SiteURL(d.Domain), RootExists: true, Workers: []WorkerInfo{},
-				Discovered: true, Auto: d.Auto, Error: d.Error,
+				Discovered: true, Auto: d.Auto, Error: d.Error, Autostart: a.IsProjectAutostart(d.Root),
 			})
 		}
 		sort.Slice(st.Sites, func(i, j int) bool { return st.Sites[i].Name < st.Sites[j].Name })

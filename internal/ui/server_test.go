@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -117,5 +119,48 @@ func TestJobWriteHandlesCarriageReturnAndArabic(t *testing.T) {
 	}
 	if !strings.Contains(got, "مرحبا بالعالم") {
 		t.Errorf("UTF-8 text corrupted: %q", got)
+	}
+}
+
+func TestProjectAutostartAPI(t *testing.T) {
+	s := testServer(t)
+	h := s.Handler()
+	// the test server's install folder is configured, so projects live in its www
+	a, err := s.newApp(io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	good := filepath.Join(a.P.WWW, "blog")
+	if err := os.MkdirAll(good, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	hdr := map[string]string{"Cookie": cookieName + "=" + s.token, "X-Hyper": "1", "Origin": "http://127.0.0.1:7480"}
+
+	body := func(path string, on bool) string {
+		b, _ := json.Marshal(map[string]any{"path": path, "enabled": on})
+		return string(b)
+	}
+	if w := do(h, "POST", "/api/project-autostart", "127.0.0.1:7480", hdr, body(filepath.Join(a.P.WWW, "missing"), true)); w.Code != http.StatusBadRequest {
+		t.Errorf("a folder that does not exist must be refused: %d %s", w.Code, w.Body.String())
+	}
+	if w := do(h, "POST", "/api/project-autostart", "127.0.0.1:7480", hdr, body(good, true)); w.Code != http.StatusOK {
+		t.Fatalf("a real project must be accepted: %d %s", w.Code, w.Body.String())
+	}
+	saved, _ := os.ReadFile(filepath.Join(a.P.Root, "settings.json"))
+	if !strings.Contains(strings.ToLower(string(saved)), "blog") {
+		t.Errorf("the flag was not saved: %s", saved)
+	}
+	if w := do(h, "POST", "/api/project-autostart", "127.0.0.1:7480", hdr, body(good, false)); w.Code != http.StatusOK {
+		t.Fatalf("turning it off: %d", w.Code)
+	}
+	saved, _ = os.ReadFile(filepath.Join(a.P.Root, "settings.json"))
+	if strings.Contains(strings.ToLower(string(saved)), "blog") {
+		t.Errorf("the flag was not removed: %s", saved)
+	}
+
+	// like every state-changing call, it needs the token and the header
+	if w := do(h, "POST", "/api/project-autostart", "127.0.0.1:7480", map[string]string{"Cookie": hdr["Cookie"]}, body(good, true)); w.Code != http.StatusForbidden {
+		t.Errorf("missing X-Hyper must be refused: %d", w.Code)
 	}
 }

@@ -32,7 +32,7 @@ func spec(p config.Paths, exe string) process.Spec {
 
 // Launch makes sure the dashboard is running in the background and opens it.
 // It returns quickly; the dashboard keeps running after this process exits.
-func Launch(p config.Paths, exe string, openBrowser bool) (string, error) {
+func Launch(p config.Paths, exe string, openBrowser, startup bool) (string, error) {
 	if err := ensureHome(p); err != nil {
 		return "", err
 	}
@@ -50,6 +50,9 @@ func Launch(p config.Paths, exe string, openBrowser bool) (string, error) {
 	_ = os.Remove(instanceFile(p))
 	if !openBrowser {
 		sp.Args = append(sp.Args, "--no-browser")
+	}
+	if startup {
+		sp.Args = append(sp.Args, "--startup") // started by the Windows login entry
 	}
 	if err := process.Start(sp); err != nil {
 		return "", err
@@ -76,7 +79,7 @@ func readInstance(p config.Paths) (instance, bool) {
 }
 
 // Serve runs the dashboard and the tray icon in this process until the user quits.
-func Serve(p config.Paths, openBrowser bool) error {
+func Serve(p config.Paths, openBrowser, startup bool) error {
 	if err := ensureHome(p); err != nil {
 		return err
 	}
@@ -107,6 +110,20 @@ func Serve(p config.Paths, openBrowser bool) error {
 			}
 			defer a.Close()
 			return a.Down(ctx, "", true)
+		})
+	}
+	if startup {
+		// Signed in to Windows: bring up the projects flagged to start automatically.
+		_, _ = srv.jobs.start("Start my autostart projects", func(ctx context.Context, out io.Writer) error {
+			a, err := app.New(out, false)
+			if err != nil {
+				return err
+			}
+			defer a.Close()
+			if !a.P.Configured {
+				return nil
+			}
+			return a.UpAutostart(ctx)
 		})
 	}
 	if openBrowser {

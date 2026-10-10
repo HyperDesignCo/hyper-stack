@@ -192,7 +192,7 @@ func (a *App) applyPorts(p Ports) error {
 	}
 	before := a.S
 	p.applyTo(&a.S)
-	if a.S == before {
+	if a.S.HTTPPort == before.HTTPPort && a.S.HTTPSPort == before.HTTPSPort && a.S.MySQLPort == before.MySQLPort {
 		return nil
 	}
 	if err := a.P.SaveSettings(a.S); err != nil {

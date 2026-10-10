@@ -70,7 +70,7 @@ func Install(dir string, opts Options) (Result, error) {
 		}
 	}
 	if opts.Autostart {
-		if err := setAutostart(dst, true); err != nil {
+		if err := SetAutostart(dst, true); err != nil {
 			return res, err
 		}
 		res.Autostart = true
@@ -83,7 +83,7 @@ func Remove(dir string) error {
 	if _, err := updateUserPath(func(p string) string { return RemoveFromPath(p, dir) }); err != nil {
 		return err
 	}
-	if err := setAutostart("", false); err != nil {
+	if err := SetAutostart("", false); err != nil {
 		return err
 	}
 	if p := shortcutPath(); p != "" {
@@ -162,7 +162,9 @@ func broadcastEnvChange() {
 	_, _, _ = proc.Call(0xffff, 0x001A, 0, uintptr(unsafe.Pointer(env)), 0x0002, 5000, uintptr(unsafe.Pointer(&result))) //nolint:gosec // Win32 SendMessageTimeout needs raw pointers
 }
 
-func setAutostart(exe string, on bool) error {
+// SetAutostart adds or removes the Windows login entry. At login it starts the
+// tray icon and dashboard, which then start the projects flagged for autostart.
+func SetAutostart(exe string, on bool) error {
 	k, _, err := registry.CreateKey(registry.CURRENT_USER, runKey, registry.SET_VALUE)
 	if err != nil {
 		return err
@@ -174,7 +176,7 @@ func setAutostart(exe string, on bool) error {
 		}
 		return nil
 	}
-	return k.SetStringValue(runName, `"`+exe+`" ui --no-browser`)
+	return k.SetStringValue(runName, `"`+exe+`" ui --no-browser --startup`)
 }
 
 // AutostartEnabled reports whether the login entry exists.

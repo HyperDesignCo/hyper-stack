@@ -13,6 +13,8 @@ type Settings struct {
 	HTTPSPort   int `json:"https_port"`
 	MySQLPort   int `json:"mysql_port"`
 	FPMBasePort int `json:"fpm_base_port"` // PHP 8.2 -> base+2, 8.3 -> base+3 ... each with 4 workers
+	// Autostart lists project folders to start whenever Hyper Stack starts at login.
+	Autostart []string `json:"autostart,omitempty"`
 }
 
 // DefaultSettings are the standard ports.

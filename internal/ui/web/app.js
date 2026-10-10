@@ -83,6 +83,19 @@ function renderBanner() {
   }
 }
 
+// "Start at login": saved straight away; the project then starts whenever Hyper Stack starts at sign-in.
+function autostartSwitch(p) {
+  const box = h("input", { type: "checkbox", checked: p.autostart, disabled: !!p.error, onchange: async (ev) => {
+    try {
+      await api("/api/project-autostart", { path: p.root, enabled: ev.target.checked });
+      toast(ev.target.checked ? p.name + " will start when you sign in" : p.name + " will no longer start at sign-in");
+      refresh();
+    } catch (e) { ev.target.checked = !ev.target.checked; toast(e.message); }
+  } });
+  if (p.autostart) box.setAttribute("checked", "");
+  return h("label", { class: "switch small" }, box, h("span", {}, "Start at login"));
+}
+
 function discoveredCard(p) {
   return h("div", { class: "card project" },
     h("div", { class: "name" }, p.name, pill(p.error ? "Needs attention" : "Not started", p.error ? "bad" : "")),
@@ -93,6 +106,7 @@ function discoveredCard(p) {
       !p.error && h("span", { class: "tag" }, p.auto ? "auto-detected" : "hyper.json")),
     p.error && h("div", { class: "why" }, p.error),
     h("div", { class: "path mono" }, p.root),
+    autostartSwitch(p),
     h("div", { class: "btnrow" },
       h("button", { class: "btn primary", disabled: busy || !!p.error, onclick: () => start("/api/up", { path: p.root }) }, "Start")));
 }
@@ -112,6 +126,7 @@ function projectCard(p) {
       h("span", { class: "tag" }, "DB " + p.database),
       p.workers.length > 0 && h("span", { class: "tag" }, `${running}/${p.workers.length} workers`)),
     h("div", { class: "path mono" }, p.root),
+    autostartSwitch(p),
     h("div", { class: "btnrow" },
       workersDown && h("button", { class: "btn primary", disabled: busy, onclick: () => startProject(p.name) }, "Restart workers"),
       p.online
@@ -181,8 +196,20 @@ function renderPorts() {
   $("#datadir").textContent = "Data folder: " + state.data_dir;
 }
 
+function renderStartup() {
+  const box = $("#login-autostart");
+  if (document.activeElement !== box) box.checked = !!state.login_autostart;
+  box.disabled = !state.installed;
+  const n = state.sites.filter((s) => s.autostart).length;
+  $("#autostart-projects").textContent = n === 0
+    ? "No projects start at login yet. Use the Start at login switch on a project."
+    : n + (n === 1 ? " project starts" : " projects start") + " at login: " +
+      state.sites.filter((s) => s.autostart).map((s) => s.name).join(", ") + ".";
+}
+
 function render() {
   renderSummary();
+  renderStartup();
   renderBanner();
   renderProjects();
   renderServices();
@@ -367,6 +394,13 @@ function showLogsFor(p) {
 /* ---------- wiring ---------- */
 
 $("#btn-add").onclick = addProject;
+$("#login-autostart").onchange = async (ev) => {
+  try {
+    await api("/api/autostart", { enabled: ev.target.checked });
+    toast(ev.target.checked ? "Hyper Stack will start when you sign in to Windows" : "Hyper Stack will no longer start at sign-in");
+  } catch (e) { ev.target.checked = !ev.target.checked; toast(e.message); }
+  refresh();
+};
 $("#btn-www").onclick = async () => { try { await api("/api/open-www", {}); } catch (e) { toast(e.message); } };
 $("#btn-startall").onclick = () => start("/api/up-all", {});
 $("#btn-stopall").onclick = () => modal("Stop all services?", [

@@ -87,6 +87,8 @@ folder inside it for all your projects. Every folder in www becomes <folder>.tes
 	})
 	root.AddCommand(up)
 
+	root.AddCommand(autostartCmd(run))
+
 	root.AddCommand(&cobra.Command{
 		Use: "www", Short: "Open the www folder where your projects live", Args: cobra.NoArgs,
 		RunE: run(func(ctx context.Context, a *app.App, _ []string) error { return a.OpenWWW() }),
@@ -169,6 +171,8 @@ folder inside it for all your projects. Every folder in www becomes <folder>.tes
 	uiCmd := &cobra.Command{Use: "ui", Short: "Open the dashboard and tray icon (no PowerShell needed)", Args: cobra.NoArgs}
 	uiCmd.Flags().Bool("serve", false, "run the dashboard in this process (used internally)")
 	uiCmd.Flags().Bool("no-browser", false, "do not open the browser")
+	uiCmd.Flags().Bool("startup", false, "started at Windows sign-in: also start the autostart projects")
+	_ = uiCmd.Flags().MarkHidden("startup")
 	uiCmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		serve, _ := cmd.Flags().GetBool("serve")
 		noBrowser, _ := cmd.Flags().GetBool("no-browser")
@@ -177,13 +181,15 @@ folder inside it for all your projects. Every folder in www becomes <folder>.tes
 			return err
 		}
 		if serve {
-			return ui.Serve(p, !noBrowser)
+			startup, _ := cmd.Flags().GetBool("startup")
+			return ui.Serve(p, !noBrowser, startup)
 		}
 		exe, err := os.Executable()
 		if err != nil {
 			return err
 		}
-		u, err := ui.Launch(p, exe, !noBrowser)
+		startup, _ := cmd.Flags().GetBool("startup")
+		u, err := ui.Launch(p, exe, !noBrowser, startup)
 		if err != nil {
 			return err
 		}

@@ -62,6 +62,15 @@ Add a `hyper.json` only when you need more control (a specific PHP version or ex
 
 First-time `setup` commands come from the project's own repository, so **Start all never runs them**. Start such a project on its own (the dashboard shows the commands and asks you to confirm; on the command line `cd` into it and run `hyper up`).
 
+### Start automatically
+
+Two separate switches, in the dashboard (**Startup** card, and **Start at login** on each project) or on the command line:
+
+- **Start Hyper Stack when I sign in to Windows**: the tray icon and dashboard start by themselves (`hyper autostart on` / `off`).
+- **Start at login, per project**: at sign-in Hyper Stack also brings up every flagged project, and nginx, PHP and MySQL as they need (`hyper autostart add [folder]` / `remove [folder]`).
+
+Projects whose `hyper.json` has first-time `setup` commands you have not reviewed are never started automatically: start them once yourself, then they can start at login. Both switches are off until you turn them on.
+
 ### Commands
 
 | Command | What it does |
@@ -74,6 +83,7 @@ First-time `setup` commands come from the project's own repository, so **Start a
 | `hyper doctor [--fix]` | Check ports (it names Laragon/XAMPP/IIS), certificate trust and hosts entries |
 | `hyper db:open` / `db:info` / `db:import dump.sql.gz` | phpMyAdmin / connection details / import with progress |
 | `hyper config set http_port 8080` | Move a port later (then `hyper down --all` and start again) |
+| `hyper autostart [on\|off\|add\|remove]` | What starts by itself at sign-in (see above) |
 | `hyper self-install [--autostart] [--remove]` | Put hyper.exe on PATH, Start menu, optional login start |
 | `hyper uninstall [--purge]` | Remove certificate trust and hosts changes; `--purge` also deletes the runtime and databases |
 

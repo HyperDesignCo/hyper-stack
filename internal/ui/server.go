@@ -186,6 +186,31 @@ func (s *Server) routes(mux *http.ServeMux) {
 			return a.InstallTo(ctx, in.Dir, app.Ports{HTTP: in.HTTP, HTTPS: in.HTTPS, MySQL: in.MySQL})
 		})
 	}))
+	mux.HandleFunc("/api/autostart", s.post(func(w http.ResponseWriter, r *http.Request, a *app.App) {
+		var in struct{ Enabled bool }
+		if !decode(w, r, &in) {
+			return
+		}
+		if err := a.SetLoginAutostart(in.Enabled); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"enabled": a.LoginAutostart()})
+	}))
+	mux.HandleFunc("/api/project-autostart", s.post(func(w http.ResponseWriter, r *http.Request, a *app.App) {
+		var in struct {
+			Path    string
+			Enabled bool
+		}
+		if !decode(w, r, &in) {
+			return
+		}
+		if err := a.SetProjectAutostart(in.Path, in.Enabled); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"enabled": in.Enabled})
+	}))
 	mux.HandleFunc("/api/open-www", s.post(func(w http.ResponseWriter, r *http.Request, a *app.App) {
 		if err := a.OpenWWW(); err != nil {
 			writeErr(w, http.StatusBadRequest, err)
