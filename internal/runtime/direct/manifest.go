@@ -132,7 +132,16 @@ func CaddyMac(ctx context.Context, goarch string) (Artifact, error) {
 	if err != nil {
 		return Artifact{}, err
 	}
-	return Artifact{Name: "caddy-" + CaddyVersion, URL: base + file, Algo: download.SHA256, Checksum: sum}, nil
+	return Artifact{Name: "caddy-" + CaddyVersion, URL: base + file, Algo: algoByLength(sum), Checksum: sum}, nil
+}
+
+// algoByLength tells SHA-512 from SHA-256 by the length of the hex digest (some
+// vendors publish one, some the other).
+func algoByLength(sum string) download.Algo {
+	if len(sum) == 128 {
+		return download.SHA512
+	}
+	return download.SHA256
 }
 
 // checksumFor reads "<sha256>  <file>" lines.

@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/md5" //nolint:gosec // MySQL only publishes MD5; used as an integrity check, not security.
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -24,6 +25,7 @@ type Algo string
 
 const (
 	SHA256 Algo = "sha256"
+	SHA512 Algo = "sha512"
 	MD5    Algo = "md5"
 )
 
@@ -223,6 +225,9 @@ func writeFile(path string, r io.Reader, mode os.FileMode) error {
 func newHash(a Algo) hash.Hash {
 	if a == MD5 {
 		return md5.New() //nolint:gosec
+	}
+	if a == SHA512 {
+		return sha512.New()
 	}
 	return sha256.New()
 }

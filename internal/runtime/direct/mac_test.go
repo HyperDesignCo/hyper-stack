@@ -210,3 +210,9 @@ func TestMacRefusesAPHPItDoesNotHave(t *testing.T) {
 		t.Errorf("PHP 7.4 on a Mac must be refused with the oldest available: %v", err)
 	}
 }
+
+func TestAlgoFollowsDigestLength(t *testing.T) {
+	if algoByLength(strings.Repeat("a", 128)) != download.SHA512 || algoByLength(strings.Repeat("a", 64)) != download.SHA256 {
+		t.Error("128 hex digits is SHA-512, 64 is SHA-256")
+	}
+}

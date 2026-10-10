@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
@@ -94,6 +95,17 @@ func TestUntarGz(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(d, "o", "bin", "mysqld")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFileVerifiesSHA512(t *testing.T) {
+	body := []byte("hello")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(body) }))
+	defer srv.Close()
+	sum := sha512.Sum512(body)
+	dest := filepath.Join(t.TempDir(), "a.bin")
+	if err := File(context.Background(), srv.URL, dest, SHA512, hex.EncodeToString(sum[:]), nil); err != nil {
 		t.Fatal(err)
 	}
 }
