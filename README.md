@@ -98,6 +98,7 @@ Projects whose `hyper.json` has first-time `setup` commands you have not reviewe
 | `hyper config set http_port 8080` | Move a port later (then `hyper down --all` and start again) |
 | `hyper autostart [on\|off\|add\|remove]` | What starts by itself at sign-in (see above) |
 | `hyper self-install [--autostart] [--remove]` | Put hyper.exe on PATH, Start menu, optional login start |
+| `hyper move <folder>` | Move the whole install to another folder or drive (`--keep-old` keeps the old folder) |
 | `hyper uninstall [--purge]` | Remove certificate trust and hosts changes; `--purge` also deletes the runtime and databases |
 
 ## Where things live
@@ -112,7 +113,9 @@ D:\Hyper\
   certs\ logs\ run\ sites\ cache\
 ```
 
-`hyper uninstall --purge` removes everything above **except `www`**. To move to another folder, uninstall with `--purge`, then install again.
+`hyper uninstall --purge` removes everything above **except `www`**.
+
+**Running low on space on that drive?** `hyper move E:\HyperStack` moves the whole install, projects and databases included, to another folder or drive. It copies first, checks that every file matches, starts the projects that were running from the new place, and only then deletes the old folder (if anything fails it switches back and the old one is untouched). No administrator prompt.
 
 ## Safety rules
 
