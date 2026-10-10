@@ -259,7 +259,7 @@ func (a *App) Install(ctx context.Context) error {
 }
 
 func (a *App) requireInstalled() error {
-	if _, err := os.Stat(filepath.Join(a.P.Bin, "nginx", ".hyper-installed")); err != nil {
+	if _, err := os.Stat(filepath.Join(a.P.Bin, a.RT.WebName(), ".hyper-installed")); err != nil {
 		return fmt.Errorf("the Hyper Stack runtime is not installed on this machine. Run: hyper install")
 	}
 	return nil

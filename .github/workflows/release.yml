@@ -35,5 +35,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ github.ref_name }}" `
-            dist/hyper-windows-amd64.zip dist/checksums.txt dist/install.ps1 `
+            dist/hyper-windows-amd64.zip dist/hyper-darwin-arm64 dist/hyper-darwin-amd64 `
+            dist/checksums.txt dist/install.ps1 dist/install.sh `
             --title "Hyper Stack ${{ github.ref_name }}" --generate-notes

@@ -1,6 +1,7 @@
 <#
   Builds the Windows release locally, exactly like the CI release job does.
-  Output: dist\hyper-windows-amd64.zip, dist\checksums.txt, dist\install.ps1
+  Output: dist\hyper-windows-amd64.zip, dist\hyper-darwin-arm64, dist\hyper-darwin-amd64,
+          dist\checksums.txt, dist\install.ps1, dist\install.sh
 
   Usage:  .\scripts\build.ps1 -Version 0.1.0
 #>
@@ -34,9 +35,16 @@ Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED
 
 Compress-Archive -Path "$dist\hyper.exe" -DestinationPath "$dist\hyper-windows-amd64.zip" -Force
 Remove-Item "$dist\hyper.exe"
+foreach ($arch in 'arm64', 'amd64') {
+    $env:GOOS = 'darwin'; $env:GOARCH = $arch; $env:CGO_ENABLED = '0'
+    go build -trimpath -ldflags "-s -w -X $pkg.Version=$Version -X $pkg.Commit=$commit -X $pkg.Date=$date" -o "$dist\hyper-darwin-$arch" .\cmd\hyper
+    if ($LASTEXITCODE) { throw "macOS $arch build failed" }
+    Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED
+}
 Copy-Item "$root\scripts\install.ps1" "$dist\install.ps1"
+Copy-Item "$root\scripts\install.sh" "$dist\install.sh"
 
-$lines = foreach ($f in 'hyper-windows-amd64.zip', 'install.ps1') {
+$lines = foreach ($f in 'hyper-windows-amd64.zip', 'hyper-darwin-arm64', 'hyper-darwin-amd64', 'install.ps1', 'install.sh') {
     $h = (Get-FileHash "$dist\$f" -Algorithm SHA256).Hash.ToLower()
     "$h  $f"
 }
