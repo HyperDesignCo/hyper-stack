@@ -87,10 +87,10 @@ func TestSetProjectPHPRefusesUnknownVersions(t *testing.T) {
 func TestSetProjectPHPDoesNotRestartAProjectWithUnreviewedSetup(t *testing.T) {
 	a, out := newTestApp(t)
 	dir := mkProject(t, a, "legacy", `{"name":"legacy","php":"8.3","database":{"engine":"mysql","name":"legacy"},"setup":["php -v"]}`)
-	if err := a.SetProjectPHP(context.Background(), dir, "7.4"); err != nil {
+	if err := a.SetProjectPHP(context.Background(), dir, "8.1"); err != nil {
 		t.Fatalf("saving the version is not a failure: %v", err)
 	}
-	if got := readJSON(t, filepath.Join(dir, "hyper.json"))["php"]; got != "7.4" {
+	if got := readJSON(t, filepath.Join(dir, "hyper.json"))["php"]; got != "8.1" {
 		t.Errorf("version not saved: %v", got)
 	}
 	if !strings.Contains(out.String(), "was not restarted") {
