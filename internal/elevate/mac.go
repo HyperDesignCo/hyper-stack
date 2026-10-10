@@ -1,11 +1,13 @@
 package elevate
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
 	"strings"
+	"time"
 )
 
 const systemKeychain = "/Library/Keychains/System.keychain"
@@ -53,8 +55,12 @@ func macSetupScript(caPath, username string) string {
 
 // macTeardownScript removes every certificate named CAName and gives /etc/hosts back to root.
 func macTeardownScript() string {
-	return fmt.Sprintf(`n=0; while [ $n -lt 20 ] && /usr/bin/security delete-certificate -t -c %s %s >/dev/null 2>&1; do n=$((n+1)); done; /usr/sbin/chown root:wheel /etc/hosts; /bin/chmod 644 /etc/hosts`,
-		shQuote(CAName), systemKeychain)
+	// Every step is bounded (perl's alarm) so a keychain that wants a dialog cannot hang the uninstall.
+	t := `/usr/bin/perl -e 'alarm shift; exec @ARGV' 20`
+	return fmt.Sprintf(`for h in $(/usr/bin/security find-certificate -a -Z -c %[1]s %[2]s | /usr/bin/awk '/SHA-1 hash:/{print $3}'); do `+
+		`%[3]s /usr/bin/security delete-certificate -Z "$h" -t %[2]s >/dev/null 2>&1 || %[3]s /usr/bin/security delete-certificate -Z "$h" %[2]s >/dev/null 2>&1 || true; done; `+
+		`/usr/sbin/chown root:wheel /etc/hosts; /bin/chmod 644 /etc/hosts`,
+		shQuote(CAName), systemKeychain, t)
 }
 
 // shQuote quotes a string for /bin/sh.
@@ -69,14 +75,16 @@ func appleScriptQuote(s string) string {
 // first (a machine where that works, such as CI, needs no prompt), and otherwise
 // shows the standard macOS password dialog once.
 func runPrivileged(script, why string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
 	if exec.Command("sudo", "-n", "true").Run() == nil {
-		if out, err := exec.Command("sudo", "-n", "/bin/sh", "-c", script).CombinedOutput(); err != nil {
+		if out, err := exec.CommandContext(ctx, "sudo", "-n", "/bin/sh", "-c", script).CombinedOutput(); err != nil {
 			return fmt.Errorf("the privileged step failed: %w\n%s", err, strings.TrimSpace(string(out)))
 		}
 		return nil
 	}
 	osa := fmt.Sprintf(`do shell script %s with administrator privileges with prompt %s`, appleScriptQuote(script), appleScriptQuote(why))
-	out, err := exec.Command("osascript", "-e", osa).CombinedOutput()
+	out, err := exec.CommandContext(ctx, "osascript", "-e", osa).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("the macOS password prompt did not complete (was it cancelled?): %w\n%s", err, strings.TrimSpace(string(out)))
 	}

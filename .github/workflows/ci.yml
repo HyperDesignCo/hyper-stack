@@ -171,6 +171,7 @@ jobs:
           "$HS2/bin/mysql/bin/mysql" --defaults-file="$HS2/run/my.cnf" -uroot -N -e "select count(*) from blog.t" | grep -q '^2$'
 
       - name: Uninstall keeps the projects
+        timeout-minutes: 8
         run: |
           ./hyper uninstall --purge
           test -f "$HS2/www/blog/index.php"
