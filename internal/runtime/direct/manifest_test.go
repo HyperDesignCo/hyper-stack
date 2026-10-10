@@ -1,6 +1,11 @@
 package direct
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/hyperdesign/hyper-stack/internal/download"
+)
 
 const feed = `{
  "8.3": {"version":"8.3.35","nts-vs16-x64":{"zip":{"path":"php-8.3.35-nts-Win32-vs16-x64.zip","sha256":"aa"}}},
@@ -31,5 +36,29 @@ func TestChecksumFor(t *testing.T) {
 	}
 	if _, err := checksumFor(sums, "nope"); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+// php.net publishes no checksums for archived Windows builds, so ours are pinned.
+func TestLegacyPHPIsPinnedAndNeedsNoNetwork(t *testing.T) {
+	for version, want := range map[string]string{
+		"7.4": "php-7.4.33-nts-Win32-vc15-x64.zip", "8.0": "php-8.0.30-nts-Win32-vs16-x64.zip", "8.1": "php-8.1.34-nts-Win32-vs16-x64.zip",
+	} {
+		a, ok := legacyPHP(version)
+		if !ok {
+			t.Fatalf("PHP %s must be available", version)
+		}
+		if !strings.HasSuffix(a.URL, "/archives/"+want) {
+			t.Errorf("PHP %s: wrong file %s", version, a.URL)
+		}
+		if len(a.Checksum) != 64 || a.Algo != download.SHA256 {
+			t.Errorf("PHP %s must carry a SHA-256, got %q", version, a.Checksum)
+		}
+		if a.StripTop {
+			t.Errorf("PHP %s zips have no top folder", version)
+		}
+	}
+	if _, ok := legacyPHP("8.3"); ok {
+		t.Error("current versions come from the live release feed, not the archive table")
 	}
 }

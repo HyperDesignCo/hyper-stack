@@ -96,12 +96,25 @@ function autostartSwitch(p) {
   return h("label", { class: "switch small" }, box, h("span", {}, "Start at login"));
 }
 
+// PHP version of a project. Changing it saves the version in the project's hyper.json
+// and restarts the project on it, which is how an old project is moved up one step at a time.
+function phpSelect(p) {
+  const versions = state.php_versions && state.php_versions.length ? state.php_versions : [p.php];
+  const sel = h("select", { class: "phpsel", title: "PHP version of this project", disabled: busy, onchange: (ev) => {
+    const version = ev.target.value;
+    if (version === p.php) return;
+    start("/api/php", { path: p.root, version });
+  } }, versions.map((v) => h("option", { value: v, selected: v === p.php }, "PHP " + v)));
+  sel.value = p.php;
+  return sel;
+}
+
 function discoveredCard(p) {
   return h("div", { class: "card project" },
     h("div", { class: "name" }, p.name, pill(p.error ? "Needs attention" : "Not started", p.error ? "bad" : "")),
     !p.error && h("div", { class: "url" }, p.domain),
     h("div", { class: "meta" },
-      !p.error && h("span", { class: "tag" }, "PHP " + p.php),
+      !p.error && phpSelect(p),
       !p.error && h("span", { class: "tag" }, "DB " + p.database),
       !p.error && h("span", { class: "tag" }, p.auto ? "auto-detected" : "hyper.json")),
     p.error && h("div", { class: "why" }, p.error),
@@ -122,7 +135,7 @@ function projectCard(p) {
       !p.root_exists && pill("Folder missing", "bad")),
     h("a", { class: "url", href: p.url, target: "_blank", rel: "noopener" }, p.url),
     h("div", { class: "meta" },
-      h("span", { class: "tag" }, "PHP " + p.php),
+      phpSelect(p),
       h("span", { class: "tag" }, "DB " + p.database),
       p.workers.length > 0 && h("span", { class: "tag" }, `${running}/${p.workers.length} workers`)),
     h("div", { class: "path mono" }, p.root),

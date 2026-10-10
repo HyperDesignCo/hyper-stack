@@ -76,11 +76,16 @@ func (r *Runtime) PMADir() string { return r.pmaDir() }
 
 // FPMPort returns the port of worker i of a PHP version ("8.3" -> base+30+i).
 func (r *Runtime) FPMPort(version string, i int) int {
-	minor := 0
+	major, minor := 8, 0
 	if parts := strings.Split(version, "."); len(parts) == 2 {
+		_, _ = fmt.Sscanf(parts[0], "%d", &major)
 		_, _ = fmt.Sscanf(parts[1], "%d", &minor)
 	}
-	return r.S.FPMBasePort + minor*10 + i
+	slot := minor * 10 // 8.2 -> +20, 8.3 -> +30, 8.4 -> +40: unchanged for existing installs
+	if major < 8 {
+		slot += 100 // 7.4 -> +140, so it never shares ports with 8.4
+	}
+	return r.S.FPMBasePort + slot + i
 }
 
 // FPMWorkers is the number of php-cgi processes per version (php-cgi on
@@ -186,6 +191,13 @@ func (r *Runtime) writePHPIni(version string, extra []string) error {
 		if _, err := os.Stat(filepath.Join(ext, "php_"+e+".dll")); err == nil {
 			enable = append(enable, e)
 			continue
+		}
+		// PHP 7 calls the GD extension "gd2".
+		if e == "gd" {
+			if _, err := os.Stat(filepath.Join(ext, "php_gd2.dll")); err == nil {
+				enable = append(enable, "gd2")
+				continue
+			}
 		}
 		if builtin[strings.ToLower(e)] {
 			continue

@@ -88,6 +88,7 @@ folder inside it for all your projects. Every folder in www becomes <folder>.tes
 	root.AddCommand(up)
 
 	root.AddCommand(autostartCmd(run))
+	root.AddCommand(phpCmd(run))
 
 	root.AddCommand(&cobra.Command{
 		Use: "www", Short: "Open the www folder where your projects live", Args: cobra.NoArgs,

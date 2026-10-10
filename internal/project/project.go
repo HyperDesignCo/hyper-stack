@@ -37,7 +37,9 @@ var (
 	nameRe   = regexp.MustCompile(`^[a-z0-9-]+$`)
 	dbNameRe = regexp.MustCompile(`^[a-z0-9_]+$`)
 
-	phpVersions = []string{"8.2", "8.3", "8.4"}
+	// 7.4, 8.0 and 8.1 exist so an old project can run as it is and be upgraded
+	// one step at a time (Laravel 5.8 to 8 need 7.4, 9 and 10 need 8.1).
+	phpVersions = []string{"7.4", "8.0", "8.1", "8.2", "8.3", "8.4"}
 	services    = []string{"redis", "mailpit"}
 )
 
@@ -127,3 +129,9 @@ func contains(list []string, v string) bool {
 	}
 	return false
 }
+
+// SupportedPHP lists the PHP versions a project may use, oldest first.
+func SupportedPHP() []string { return append([]string(nil), phpVersions...) }
+
+// IsSupportedPHP reports whether Hyper Stack offers this PHP version.
+func IsSupportedPHP(v string) bool { return contains(phpVersions, v) }

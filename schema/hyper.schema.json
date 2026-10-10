@@ -8,7 +8,7 @@
   "properties": {
     "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
     "domain": { "type": "string", "pattern": "\\.test$" },
-    "php": { "enum": ["8.2", "8.3", "8.4"] },
+    "php": { "enum": ["7.4", "8.0", "8.1", "8.2", "8.3", "8.4"] },
     "extensions": { "type": "array", "items": { "type": "string" } },
     "database": {
       "type": "object",

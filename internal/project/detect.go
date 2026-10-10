@@ -65,15 +65,26 @@ func DBName(name string) string {
 }
 
 // WebRoot returns the folder nginx should serve: public/ (Laravel and most
-// frameworks), else public_html/ or web/, else the project folder itself.
+// frameworks), else public_html/ or web/, else the project folder itself. A
+// candidate only counts if it holds an index file: an app deployed the cPanel
+// way keeps index.php in the project root and leaves public/ with just assets.
 func WebRoot(dir string) string {
 	for _, d := range []string{"public", "public_html", "web"} {
 		p := filepath.Join(dir, d)
-		if st, err := os.Stat(p); err == nil && st.IsDir() {
+		if hasIndex(p) {
 			return p
 		}
 	}
 	return dir
+}
+
+func hasIndex(dir string) bool {
+	for _, f := range []string{"index.php", "index.html", "index.htm"} {
+		if st, err := os.Stat(filepath.Join(dir, f)); err == nil && !st.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 // IsLaravelLike reports whether the folder looks like a Laravel app, which
@@ -91,7 +102,7 @@ type ver struct{ major, minor int }
 
 func (a ver) less(b ver) bool { return a.major < b.major || (a.major == b.major && a.minor < b.minor) }
 
-var supportedVers = []ver{{8, 2}, {8, 3}, {8, 4}}
+var supportedVers = []ver{{7, 4}, {8, 0}, {8, 1}, {8, 2}, {8, 3}, {8, 4}}
 
 // DetectPHP picks the lowest supported PHP that satisfies composer.json and
 // every package in composer.lock. (Only the lower bounds matter here: a

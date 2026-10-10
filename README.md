@@ -1,6 +1,6 @@
 # Hyper Stack
 
-A Laragon/XAMPP-style local environment for Hyper Design developers on Windows. You pick **one folder** at install time. PHP 8.2/8.3/8.4, nginx, MySQL 8, phpMyAdmin, Composer and Node go inside it, plus a **`www`** folder: every project you put in `www` is served at `https://<folder>.test`, with trusted HTTPS and no configuration.
+A Laragon/XAMPP-style local environment for Hyper Design developers on Windows. You pick **one folder** at install time. PHP 7.4 to 8.4, nginx, MySQL 8, phpMyAdmin, Composer and Node go inside it, plus a **`www`** folder: every project you put in `www` is served at `https://<folder>.test`, with trusted HTTPS and no configuration.
 
 Status: **Windows is supported. macOS is not implemented yet.**
 
@@ -40,8 +40,8 @@ What Hyper Stack works out from the folder alone (no `hyper.json` needed):
 | | |
 | --- | --- |
 | Address | `<folder>.test` (`My Shop` becomes `my-shop.test`) |
-| PHP version | the lowest of 8.2/8.3/8.4 that satisfies `composer.json` and every package in `composer.lock`; otherwise 8.3 |
-| Web root | `public/`, else `public_html/`, else `web/`, else the folder itself |
+| PHP version | the lowest of 7.4, 8.0, 8.1, 8.2, 8.3, 8.4 that satisfies `composer.json` and every package in `composer.lock`; otherwise 8.3 |
+| Web root | `public/`, `public_html/` or `web/` if it contains an index file, else the folder itself |
 | Database | created automatically, named after the folder (`my_shop`) |
 | `.env` | for Laravel-style folders only: `APP_URL`, `DB_*` are filled in; everything else is kept |
 
@@ -61,6 +61,19 @@ Add a `hyper.json` only when you need more control (a specific PHP version or ex
 ```
 
 First-time `setup` commands come from the project's own repository, so **Start all never runs them**. Start such a project on its own (the dashboard shows the commands and asks you to confirm; on the command line `cd` into it and run `hyper up`).
+
+### Upgrading an old project (for example Laravel 5.8 to 12)
+
+Old PHP versions are there for this. A project runs on the PHP it needs, and you move it up one step at a time:
+
+| Laravel | PHP to use | |
+| --- | --- | --- |
+| 5.8, 6, 7, 8 | 7.4 | `hyper php 7.4` |
+| 9 | 8.0 or 8.1 | `hyper php 8.1` |
+| 10 | 8.1 or 8.2 | `hyper php 8.1` |
+| 11, 12 | 8.2 or newer | `hyper php 8.3` |
+
+`hyper php <version>` (or the PHP dropdown on the project card) saves the version in the project's `hyper.json`, keeps its other settings, and restarts it. `hyper php` alone shows what a project runs on. PHP 7.4, 8.0 and 8.1 are end-of-life and are meant for upgrades and old code, not new projects.
 
 ### Start automatically
 

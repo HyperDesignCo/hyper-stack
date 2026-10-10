@@ -19,7 +19,7 @@ func TestParseValidAppliesDefaults(t *testing.T) {
 }
 
 func TestParseReportsEveryBadField(t *testing.T) {
-	_, err := Parse([]byte(`{"name":"Bad Name","domain":"x.com","php":"7.4","database":{"engine":"pg","name":"A-B"},"services":["kafka"]}`))
+	_, err := Parse([]byte(`{"name":"Bad Name","domain":"x.com","php":"5.6","database":{"engine":"pg","name":"A-B"},"services":["kafka"]}`))
 	var ve *ValidationError
 	if !errors.As(err, &ve) {
 		t.Fatalf("want ValidationError, got %v", err)

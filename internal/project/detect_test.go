@@ -74,10 +74,26 @@ func TestDetectPHP(t *testing.T) {
 			t.Fatalf("got %s, want 8.4", got)
 		}
 	})
-	t.Run("old project falls forward to the lowest supported", func(t *testing.T) {
+	t.Run("an old project keeps an old PHP so it can run as it is", func(t *testing.T) {
 		d := t.TempDir()
-		write(t, d, "composer.json", `{"require":{"php":"^7.4"}}`)
-		if got := DetectPHP(d); got != "8.2" {
+		write(t, d, "composer.json", `{"require":{"php":"^7.1.3"}}`) // Laravel 5.8
+		if got := DetectPHP(d); got != "7.4" {
+			t.Fatalf("Laravel 5.8 needs PHP 7.x: got %s", got)
+		}
+	})
+	t.Run("Laravel 9 picks 8.0, Laravel 10 picks 8.1", func(t *testing.T) {
+		for want, constraint := range map[string]string{"8.0": "^8.0.2", "8.1": "^8.1", "8.2": "^8.2"} {
+			d := t.TempDir()
+			write(t, d, "composer.json", `{"require":{"php":"`+constraint+`"}}`)
+			if got := DetectPHP(d); got != want {
+				t.Errorf("%s: got %s, want %s", constraint, got, want)
+			}
+		}
+	})
+	t.Run("older than anything we offer falls forward to 7.4", func(t *testing.T) {
+		d := t.TempDir()
+		write(t, d, "composer.json", `{"require":{"php":"^5.6"}}`)
+		if got := DetectPHP(d); got != "7.4" {
 			t.Fatalf("got %s", got)
 		}
 	})
@@ -109,6 +125,22 @@ func TestWebRoot(t *testing.T) {
 	write(t, d, "public/index.php", "x")
 	if WebRoot(d) != filepath.Join(d, "public") {
 		t.Error("public wins")
+	}
+}
+
+// A project deployed the cPanel way keeps index.php in its root and leaves
+// public/ with only assets. Serving public/ gave "403 Forbidden".
+func TestWebRootIgnoresAPublicFolderWithoutAnIndex(t *testing.T) {
+	d := t.TempDir()
+	write(t, d, "index.php", "<?php require 'vendor/autoload.php';")
+	write(t, d, "public/css/app.css", "body{}")
+	write(t, d, "public/js/app.js", "x")
+	if got := WebRoot(d); got != d {
+		t.Fatalf("public/ has no index file, so the project root must be served: got %s", got)
+	}
+	write(t, d, "public/index.php", "<?php")
+	if got := WebRoot(d); got != filepath.Join(d, "public") {
+		t.Fatalf("once public/ has an index it is the web root: got %s", got)
 	}
 }
 

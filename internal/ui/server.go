@@ -23,6 +23,7 @@ import (
 
 	"github.com/hyperdesign/hyper-stack/internal/app"
 	"github.com/hyperdesign/hyper-stack/internal/config"
+	"github.com/hyperdesign/hyper-stack/internal/project"
 )
 
 //go:embed web
@@ -185,6 +186,17 @@ func (s *Server) routes(mux *http.ServeMux) {
 		s.startJob(w, "Install Hyper Stack", func(ctx context.Context, a *app.App) error {
 			return a.InstallTo(ctx, in.Dir, app.Ports{HTTP: in.HTTP, HTTPS: in.HTTPS, MySQL: in.MySQL})
 		})
+	}))
+	mux.HandleFunc("/api/php", s.post(func(w http.ResponseWriter, r *http.Request, a *app.App) {
+		var in struct{ Path, Version string }
+		if !decode(w, r, &in) {
+			return
+		}
+		if !project.IsSupportedPHP(in.Version) {
+			writeErr(w, http.StatusBadRequest, fmt.Errorf("PHP %s is not available", in.Version))
+			return
+		}
+		s.startJob(w, "Switch to PHP "+in.Version, func(ctx context.Context, a *app.App) error { return a.SetProjectPHP(ctx, in.Path, in.Version) })
 	}))
 	mux.HandleFunc("/api/autostart", s.post(func(w http.ResponseWriter, r *http.Request, a *app.App) {
 		var in struct{ Enabled bool }

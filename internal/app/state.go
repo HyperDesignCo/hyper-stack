@@ -52,6 +52,7 @@ type SiteInfo struct {
 // State is everything the dashboard shows.
 type State struct {
 	Installed   bool            `json:"installed"`
+	PHPVersions []string        `json:"php_versions"`
 	LoginStart  bool            `json:"login_autostart"` // Hyper Stack starts when you sign in to Windows
 	Configured  bool            `json:"configured"`      // an install folder has been chosen
 	DefaultDir  string          `json:"default_dir"`
@@ -76,7 +77,7 @@ func (a *App) State(ctx context.Context) State {
 		Sites:     []SiteInfo{},
 		LogFiles:  a.logFiles(),
 		Installed: a.requireInstalled() == nil, Configured: a.P.Configured,
-		DefaultDir: config.DefaultInstallDir(), LoginStart: a.LoginAutostart(),
+		DefaultDir: config.DefaultInstallDir(), LoginStart: a.LoginAutostart(), PHPVersions: project.SupportedPHP(),
 	}
 	if a.P.Configured {
 		st.WWW = a.P.WWW

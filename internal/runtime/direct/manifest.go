@@ -52,11 +52,36 @@ func MySQLWindows() Artifact {
 // PHPWindows resolves the latest NTS x64 zip for a minor version ("8.3") from
 // the official releases feed, including its SHA-256.
 func PHPWindows(ctx context.Context, version string) (Artifact, error) {
+	if a, ok := legacyPHP(version); ok {
+		return a, nil
+	}
 	body, err := httpGet(ctx, phpReleasesJS)
 	if err != nil {
 		return Artifact{}, err
 	}
 	return phpFromReleases(body, version)
+}
+
+// phpArchives is where php.net keeps builds that are no longer in the release feed.
+const phpArchives = "https://downloads.php.net/~windows/releases/archives/"
+
+// legacyBuilds are the end-of-life PHP versions offered so old projects can run
+// and be upgraded step by step. php.net publishes no checksums for archived
+// builds, but these releases are final and can never change, so each file's
+// SHA-256 is pinned here (taken from the php.net download over HTTPS) and
+// verified on every install.
+var legacyBuilds = map[string]struct{ file, sha256 string }{
+	"7.4": {"php-7.4.33-nts-Win32-vc15-x64.zip", "14ae3250d4447c8ccfc4c45a70d90adfbcd61e728d85f0be56a7ddf8f9c8aace"},
+	"8.0": {"php-8.0.30-nts-Win32-vs16-x64.zip", "dfb70498ffa2c617f2f655a155564697e3c9cca41709938fd1a5997d1d5b0785"},
+	"8.1": {"php-8.1.34-nts-Win32-vs16-x64.zip", "9cfe246cb144076c16f5913a3ef88a474c3dd7e60f0f0c8bb95faf68674016cc"},
+}
+
+func legacyPHP(minor string) (Artifact, bool) {
+	b, ok := legacyBuilds[minor]
+	if !ok {
+		return Artifact{}, false
+	}
+	return Artifact{Name: "php-" + minor, URL: phpArchives + b.file, Algo: download.SHA256, Checksum: b.sha256}, true
 }
 
 func phpFromReleases(body []byte, minor string) (Artifact, error) {
