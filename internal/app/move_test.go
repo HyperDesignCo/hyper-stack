@@ -8,46 +8,61 @@ import (
 	"testing"
 )
 
+// The tests build their paths with filepath so they mean the same thing on
+// Windows (backslashes) and on macOS or Linux (slashes).
+
 func TestRewriteUnder(t *testing.T) {
-	old, nw := `C:\HyperStack`, `E:\HyperStack`
+	base := t.TempDir()
+	old := filepath.Join(base, "HyperStack")
+	nw := filepath.Join(base, "NewDrive", "HyperStack")
+
 	cases := []struct {
-		in, want string
-		moved    bool
+		name, in, want string
+		moved          bool
 	}{
-		{`C:\HyperStack\www\medical`, `E:\HyperStack\www\medical`, true},
-		{`c:\hyperstack\WWW\blog`, `E:\HyperStack\WWW\blog`, true}, // Windows ignores case
-		{`C:\HyperStack`, `E:\HyperStack`, true},
-		{`C:\HyperStack\`, `E:\HyperStack`, true},
-		{`C:\HyperStackOther\www\x`, `C:\HyperStackOther\www\x`, false}, // a sibling, not inside
-		{`D:\Projects\shop`, `D:\Projects\shop`, false},                 // added from elsewhere: stays
-		{``, ``, false},
+		{"a project in www", filepath.Join(old, "www", "medical"), filepath.Join(nw, "www", "medical"), true},
+		{"the install folder itself", old, nw, true},
+		{"a trailing separator", old + string(filepath.Separator), nw, true},
+		{"a sibling folder with the same prefix is not inside", old + "Other", old + "Other", false},
+		{"a project added from somewhere else stays", filepath.Join(base, "Projects", "shop"), filepath.Join(base, "Projects", "shop"), false},
+		{"empty stays empty", "", "", false},
 	}
 	for _, c := range cases {
 		got, moved := rewriteUnder(c.in, old, nw)
 		if got != c.want || moved != c.moved {
-			t.Errorf("rewriteUnder(%q) = %q,%v want %q,%v", c.in, got, moved, c.want, c.moved)
+			t.Errorf("%s: rewriteUnder(%q) = %q,%v want %q,%v", c.name, c.in, got, moved, c.want, c.moved)
 		}
 	}
-	if inside(`C:\HyperStack2`, old) || !inside(`C:\HyperStack\www`, old) || !inside(old, old) {
+
+	// paths are compared without regard to case, as Windows (and a default Mac) do
+	upper := strings.ToUpper(old)
+	if got, moved := rewriteUnder(filepath.Join(upper, "www", "blog"), old, nw); !moved || got != filepath.Join(nw, "www", "blog") {
+		t.Errorf("a differently-capitalised path must still be recognised: %q %v", got, moved)
+	}
+	if inside(old+"2", old) || !inside(filepath.Join(old, "www"), old) || !inside(old, old) {
 		t.Error("inside() is wrong")
 	}
 }
 
-// After the copy the records still say "C:\..."; they must be pointed at the new
-// folder, but a project added from another drive must keep its own path.
+// After the copy the records still name the old folder; they must be pointed at
+// the new one, but a project added from another place keeps its own path.
 func TestRewriteMovedPathsFixesRecordsAndAutostart(t *testing.T) {
 	a, _ := newTestApp(t)
-	oldRoot := `C:\HyperStack`
+	oldRoot := filepath.Join(t.TempDir(), "HyperStack")
 	newRoot := a.P.Root
-	inWWW := Site{Name: "medical", Domain: "medical.test", Root: oldRoot + `\www\medical`, WebRoot: oldRoot + `\www\medical\public`, PHP: "7.4", Database: "medical"}
-	outside := Site{Name: "shop", Domain: "shop.test", Root: `D:\Projects\shop`, WebRoot: `D:\Projects\shop\public`, PHP: "8.3", Database: "shop"}
+	elsewhere := filepath.Join(t.TempDir(), "Projects", "shop")
+
+	inWWW := Site{Name: "medical", Domain: "medical.test", Root: filepath.Join(oldRoot, "www", "medical"),
+		WebRoot: filepath.Join(oldRoot, "www", "medical", "public"), PHP: "7.4", Database: "medical"}
+	outside := Site{Name: "shop", Domain: "shop.test", Root: elsewhere,
+		WebRoot: filepath.Join(elsewhere, "public"), PHP: "8.3", Database: "shop"}
 	for _, s := range []Site{inWWW, outside} {
 		if err := a.saveSite(s); err != nil {
 			t.Fatal(err)
 		}
 	}
 	st, _ := a.P.LoadSettings()
-	st.Autostart = []string{oldRoot + `\www\medical`, `D:\Projects\shop`}
+	st.Autostart = []string{filepath.Join(oldRoot, "www", "medical"), elsewhere}
 	if err := a.P.SaveSettings(st); err != nil {
 		t.Fatal(err)
 	}
@@ -60,14 +75,14 @@ func TestRewriteMovedPathsFixesRecordsAndAutostart(t *testing.T) {
 		t.Errorf("project in www not moved: %+v", m)
 	}
 	sh, _ := a.loadSite("shop")
-	if sh.Root != `D:\Projects\shop` || sh.WebRoot != `D:\Projects\shop\public` {
-		t.Errorf("a project from another drive must keep its path: %+v", sh)
+	if sh.Root != elsewhere || sh.WebRoot != filepath.Join(elsewhere, "public") {
+		t.Errorf("a project from another place must keep its path: %+v", sh)
 	}
 	b, err := a.P.LoadSettings()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(b.Autostart) != 2 || b.Autostart[0] != filepath.Join(newRoot, "www", "medical") || b.Autostart[1] != `D:\Projects\shop` {
+	if len(b.Autostart) != 2 || b.Autostart[0] != filepath.Join(newRoot, "www", "medical") || b.Autostart[1] != elsewhere {
 		t.Errorf("autostart list wrong: %v", b.Autostart)
 	}
 	if m.PHP != "7.4" || m.Database != "medical" {
@@ -86,9 +101,9 @@ func TestTreeStatsSkipsTheCache(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("bin/a.exe", "12345")
-	write("www/blog/index.php", "123")
-	write("cache/php.zip", strings.Repeat("x", 1000))
+	write(filepath.Join("bin", "a.exe"), "12345")
+	write(filepath.Join("www", "blog", "index.php"), "123")
+	write(filepath.Join("cache", "php.zip"), strings.Repeat("x", 1000))
 	files, bytes, err := treeStats(root, moveSkip)
 	if err != nil {
 		t.Fatal(err)
