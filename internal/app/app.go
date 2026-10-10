@@ -388,7 +388,7 @@ func (a *App) Up(ctx context.Context, dir string) error {
 
 	pw := secrets.RootPassword()
 	// Plain PHP/WordPress-style folders have no Laravel .env to manage.
-	if !auto || project.IsLaravelLike(root) {
+	if project.IsLaravelLike(root) || (!auto && hasEnvFile(root)) {
 		err = envfile.UpdateFile(root, map[string]string{
 			"APP_URL": a.S.SiteURL(cfg.Domain), "DB_CONNECTION": "mysql", "DB_HOST": "127.0.0.1",
 			"DB_PORT": fmt.Sprint(a.S.MySQLPort), "DB_DATABASE": cfg.Database.Name, "DB_USERNAME": "root", "DB_PASSWORD": pw,
@@ -753,3 +753,13 @@ func (a *App) ownsProcess(o doctor.Owner) bool {
 }
 
 func (a *App) hostsBackup() string { return filepath.Join(a.P.Root, "hosts.hyper-backup") }
+
+// hasEnvFile reports whether the project has a .env (or a .env.example to start from).
+func hasEnvFile(dir string) bool {
+	for _, f := range []string{".env", ".env.example"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err == nil {
+			return true
+		}
+	}
+	return false
+}
