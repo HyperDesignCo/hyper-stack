@@ -128,6 +128,7 @@ jobs:
           if ./hyper php 7.4 blog 2> err.txt; then echo "7.4 was accepted"; exit 1; fi
           cat err.txt
           grep -q "not available on macOS" err.txt
+          grep -q '"php": "8.3"' "$HS/www/blog/hyper.json"   # nothing was changed by the refused request
 
       - name: Doctor and connection details
         run: |

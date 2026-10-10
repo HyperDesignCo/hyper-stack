@@ -118,11 +118,10 @@ func (r *Runtime) ensurePHPMac(version string, extra []string) (rt.PHPInstall, e
 	if err != nil {
 		return rt.PHPInstall{}, err
 	}
-	cli, fpm, ok := StaticPHP(version, a)
-	if !ok {
-		return rt.PHPInstall{}, fmt.Errorf("PHP %s is not available on macOS (the oldest there is %s). "+
-			"Windows offers older versions for upgrading old projects", version, OldestMacPHP())
+	if err := r.CheckPHP(version); err != nil {
+		return rt.PHPInstall{}, err
 	}
+	cli, fpm, _ := StaticPHP(version, a)
 	if err := r.installArtifact(cli, r.phpDir(version)); err != nil {
 		return rt.PHPInstall{}, err
 	}
@@ -209,5 +208,22 @@ func (r *Runtime) reloadCaddy() error {
 	}
 	// A reload applies asynchronously; give it a moment before callers probe the site.
 	time.Sleep(200 * time.Millisecond)
+	return nil
+}
+
+// CheckPHP says whether this machine can run a PHP version, before anything is
+// changed on its behalf.
+func (r *Runtime) CheckPHP(version string) error {
+	if !isMac() {
+		return nil
+	}
+	a, err := macArchFor(goarch)
+	if err != nil {
+		return err
+	}
+	if _, _, ok := StaticPHP(version, a); !ok {
+		return fmt.Errorf("PHP %s is not available on macOS (the oldest there is %s). "+
+			"Windows offers older versions for upgrading old projects", version, OldestMacPHP())
+	}
 	return nil
 }

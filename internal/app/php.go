@@ -45,6 +45,9 @@ func (a *App) SetProjectPHP(ctx context.Context, arg, version string) error {
 	if !project.IsSupportedPHP(version) {
 		return fmt.Errorf("PHP %s is not available. Choose one of: %s", version, strings.Join(project.SupportedPHP(), ", "))
 	}
+	if err := a.RT.CheckPHP(version); err != nil {
+		return err
+	}
 	dir, err := a.resolveProject(arg)
 	if err != nil {
 		return err
