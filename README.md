@@ -43,7 +43,7 @@ What differs from Windows:
 - **Caddy** is the web server and **php-fpm** runs PHP (one pool per PHP version). Everything else (MySQL 8, phpMyAdmin, Composer, Node, `www`, `*.test`, `hyper php`, `hyper db:import`, `hyper move`) works the same way.
 - **PHP 8.0 to 8.4 only.** There is no PHP 7.4 on macOS, so a Laravel 5.8 project cannot run unchanged on a Mac. Do that upgrade on Windows, or get the project to PHP 8.0 first.
 - The PHP builds are static and have no `pdo_sqlite`; MySQL projects are unaffected.
-- The MySQL build from Oracle needs a recent macOS (it is built for macOS 15). Older versions may refuse to start it; `hyper doctor` says so.
+- Needs **macOS 14 or newer** (the MySQL build from Oracle is built for it). Tested on macOS 26 only.
 - No menu-bar icon. Use `hyper ui` (the dashboard opens in your browser); `hyper self-install --autostart` starts it at login.
 - Firefox keeps its own certificate list: import the Hyper Stack CA there once, or use Safari/Chrome.
 - Tested on Apple Silicon. Intel Macs build and are expected to work but are not tested.
