@@ -61,14 +61,15 @@ jobs:
     needs: test
     runs-on: macos-latest
     timeout-minutes: 45
-    env:
-      HS: ${{ runner.temp }}/hs
-      HS2: ${{ runner.temp }}/hs2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Folders
+        run: |
+          echo "HS=$RUNNER_TEMP/hs" >> "$GITHUB_ENV"
+          echo "HS2=$RUNNER_TEMP/hs2" >> "$GITHUB_ENV"
       - name: Machine
         run: |
           sw_vers
