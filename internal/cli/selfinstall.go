@@ -74,7 +74,11 @@ Open a new terminal afterwards so the new PATH is picked up.`,
 				return err
 			}
 		}
-		fmt.Println("Next: run  hyper install   (or open Hyper Stack from the Start menu)")
+		if p.Configured {
+			fmt.Println("Open Hyper Stack from the Start menu, or run: hyper ui")
+		} else {
+			fmt.Println("Next: run  hyper install   (it asks where to install), or open Hyper Stack from the Start menu")
+		}
 		return nil
 	}
 	return c
