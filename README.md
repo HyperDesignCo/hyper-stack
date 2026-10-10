@@ -45,7 +45,7 @@ What Hyper Stack works out from the folder alone (no `hyper.json` needed):
 | Database | created automatically, named after the folder (`my_shop`) |
 | `.env` | for Laravel-style folders only: `APP_URL`, `DB_*` are filled in; everything else is kept |
 
-For plain PHP projects, `hyper db:info` shows the MySQL host, port, user and password.
+For plain PHP projects the connection is `127.0.0.1`, user `root`, **empty password** (`hyper db:info` shows host and port).
 
 Add a `hyper.json` only when you need more control (a specific PHP version or extensions, first-time `setup` commands, background `workers`). Fields are in `schema/hyper.schema.json`:
 
@@ -97,7 +97,7 @@ D:\Hyper\
 - Only the `# >>> hyper-stack >>>` block of the hosts file is touched. `.env` changes only the managed keys, and a backup is kept in `.env.hyper-backup`.
 - Programs already using a port (Laragon, XAMPP, IIS) are never stopped; `hyper doctor` tells you what to do.
 - The local certificate authority can only vouch for `*.test`, so it cannot be abused to impersonate real websites.
-- The MySQL root password is generated at install time and stored in Windows Credential Manager, not in a file.
+- MySQL listens on `127.0.0.1` only, and root has **no password**, exactly like Laragon and XAMPP, so `root` with an empty password just works for any project. That also means any program running as you on this machine can use the databases: do not keep production data in them. (Installs made by version 0.1.x keep the generated password they stored in Windows Credential Manager.)
 - One broken project cannot take the others down: each site's web config is checked before it goes live.
 - The dashboard listens on `127.0.0.1` only, behind a random token.
 

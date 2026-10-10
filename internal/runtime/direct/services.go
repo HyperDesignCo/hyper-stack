@@ -47,8 +47,8 @@ func (r *Runtime) mysqlSpec() process.Spec {
 
 func (r *Runtime) phpSpec(version string, i int) (process.Spec, error) {
 	env := []string{"PHP_FCGI_MAX_REQUESTS=500", "PHPRC=" + r.phpDir(version)}
-	// phpMyAdmin reads these; the password never touches a file.
-	if pw, err := secrets.MySQLRoot(); err == nil {
+	// phpMyAdmin reads these (a stored password of an older install never touches a file).
+	if pw := secrets.RootPassword(); pw != "" {
 		env = append(env, "HYPER_MYSQL_PASSWORD="+pw)
 	}
 	tmp := filepath.Join(r.P.Run, "pma-tmp")

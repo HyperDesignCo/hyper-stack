@@ -237,14 +237,15 @@ func (a *App) DBInfo() error {
 	if err := a.requireInstalled(); err != nil {
 		return err
 	}
-	pw, err := secrets.MySQLRoot()
-	if err != nil {
-		return err
-	}
+	pw := secrets.RootPassword()
 	a.say("Host      127.0.0.1")
 	a.say("Port      %d", a.S.MySQLPort)
 	a.say("User      root")
-	a.say("Password  %s", pw)
+	if pw == "" {
+		a.say("Password  (none: leave it empty)")
+	} else {
+		a.say("Password  %s", pw)
+	}
 	a.say("phpMyAdmin %s", a.S.SiteURL(pmaDomain))
 	return nil
 }

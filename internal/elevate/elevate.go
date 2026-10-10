@@ -111,7 +111,13 @@ func Do(op string, args []string) error {
 		}
 		return nil
 	case "teardown": // teardown <user>
-		_ = exec.Command("certutil", "-delstore", "Root", CAName).Run()
+		// Each call removes one certificate with this name; earlier installs and
+		// test folders may each have left one, so repeat until none is left.
+		for i := 0; i < 20; i++ {
+			if exec.Command("certutil", "-delstore", "Root", CAName).Run() != nil {
+				break
+			}
+		}
 		if len(args) == 1 {
 			_ = exec.Command("icacls", HostsPath(), "/remove:g", args[0]).Run()
 		}

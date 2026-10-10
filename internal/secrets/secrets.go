@@ -1,10 +1,10 @@
-// Package secrets stores the local MySQL password in the OS credential store
-// (Credential Manager on Windows, Keychain on macOS), never in a text file.
+// Package secrets reads the MySQL root password that older Hyper Stack installs
+// kept in the OS credential store (Credential Manager on Windows, Keychain on
+// macOS). New installs do not create one: like Laragon and XAMPP, root has an
+// empty password and MySQL only listens on 127.0.0.1.
 package secrets
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -13,9 +13,12 @@ import (
 
 const service = "HyperStack"
 
+// lookup is the credential store read, replaceable in tests.
+var lookup = func() (string, error) { return keyring.Get(service, "mysql-root") }
+
 // MySQLRoot returns the stored root password, or ErrNotFound.
 func MySQLRoot() (string, error) {
-	v, err := keyring.Get(service, "mysql-root")
+	v, err := lookup()
 	if errors.Is(err, keyring.ErrNotFound) {
 		return "", ErrNotFound
 	}
@@ -25,23 +28,20 @@ func MySQLRoot() (string, error) {
 	return v, nil
 }
 
-// ErrNotFound means no password has been generated yet.
-var ErrNotFound = errors.New("no MySQL password stored: run hyper install")
+// ErrNotFound means no password is stored.
+var ErrNotFound = errors.New("no MySQL password stored")
 
-// NewMySQLRoot generates and stores a random password.
-func NewMySQLRoot() (string, error) {
-	b := make([]byte, 24)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
+// RootPassword is the password to use for MySQL root: the one an older install
+// stored, or "" (no password) for installs made without one.
+func RootPassword() string {
+	pw, err := MySQLRoot()
+	if err != nil {
+		return ""
 	}
-	pw := hex.EncodeToString(b)
-	if err := keyring.Set(service, "mysql-root", pw); err != nil {
-		return "", fmt.Errorf("cannot write to the credential store: %w", err)
-	}
-	return pw, nil
+	return pw
 }
 
-// Delete removes the stored password.
+// Delete removes a stored password (older installs).
 func Delete() error {
 	err := keyring.Delete(service, "mysql-root")
 	if errors.Is(err, keyring.ErrNotFound) {

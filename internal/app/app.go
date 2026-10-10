@@ -386,10 +386,7 @@ func (a *App) Up(ctx context.Context, dir string) error {
 		return err
 	}
 
-	pw, err := secrets.MySQLRoot()
-	if err != nil {
-		return err
-	}
+	pw := secrets.RootPassword()
 	// Plain PHP/WordPress-style folders have no Laravel .env to manage.
 	if !auto || project.IsLaravelLike(root) {
 		err = envfile.UpdateFile(root, map[string]string{

@@ -3,7 +3,6 @@ package direct
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -60,31 +59,27 @@ func (r *Runtime) EnsureMySQL(ctx context.Context) error {
 		return err
 	}
 
-	pw, err := secrets.MySQLRoot()
-	if errors.Is(err, secrets.ErrNotFound) {
-		if pw, err = secrets.NewMySQLRoot(); err != nil {
-			return err
+	// New installs use root with no password, like Laragon and XAMPP: MySQL only
+	// listens on 127.0.0.1, and a password nobody can remember helps nobody.
+	// An older install keeps the password it stored in the credential store.
+	pw := secrets.RootPassword()
+	if _, err := r.mysql(ctx, pw, "", "SELECT 1"); err != nil {
+		if pw == "" {
+			return fmt.Errorf("cannot log in to MySQL as root without a password: %w. "+
+				"If this data folder was made by an older Hyper Stack, run hyper uninstall --purge and hyper install again", err)
 		}
-	} else if err != nil {
-		return err
-	}
-	if _, err := r.mysql(ctx, pw, "", "SELECT 1"); err == nil {
-		return nil
-	}
-	// Fresh server: root has no password yet.
-	if _, err := r.mysql(ctx, "", "--skip-password", "ALTER USER 'root'@'localhost' IDENTIFIED BY '"+pw+"'"); err != nil {
-		return fmt.Errorf("cannot set the MySQL root password and the stored one does not work: %w. "+
-			"If this is an old install, run hyper uninstall --purge and hyper install again", err)
+		// Older install, fresh data folder: root still has no password, so set the stored one.
+		if _, err := r.mysql(ctx, "", "--skip-password", "ALTER USER 'root'@'localhost' IDENTIFIED BY '"+pw+"'"); err != nil {
+			return fmt.Errorf("cannot set the MySQL root password and the stored one does not work: %w. "+
+				"Run hyper uninstall --purge and hyper install again", err)
+		}
 	}
 	return nil
 }
 
 // CreateDatabase creates the database if missing and reports whether it did.
 func (r *Runtime) CreateDatabase(ctx context.Context, name string) (bool, error) {
-	pw, err := secrets.MySQLRoot()
-	if err != nil {
-		return false, err
-	}
+	pw := secrets.RootPassword()
 	out, err := r.mysql(ctx, pw, "", "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='"+name+"'")
 	if err != nil {
 		return false, err
@@ -98,13 +93,11 @@ func (r *Runtime) CreateDatabase(ctx context.Context, name string) (bool, error)
 
 // ImportSQL streams SQL into a database.
 func (r *Runtime) ImportSQL(ctx context.Context, db string, in io.Reader) error {
-	pw, err := secrets.MySQLRoot()
-	if err != nil {
-		return err
-	}
 	cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysql.exe"),
 		"--defaults-file="+r.myCnf(), "-uroot", "--max-allowed-packet=64M", db)
-	cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)
+	if pw := secrets.RootPassword(); pw != "" {
+		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)
+	}
 	cmd.Stdin = in
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
@@ -135,10 +128,12 @@ func (r *Runtime) mysql(ctx context.Context, pw, extra, sql string) (string, err
 
 // StopMySQL shuts MySQL down cleanly if possible.
 func (r *Runtime) StopMySQL(ctx context.Context) error {
-	if pw, err := secrets.MySQLRoot(); err == nil && process.Running(r.mysqlSpec()) {
+	if process.Running(r.mysqlSpec()) {
 		cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysqladmin.exe"),
 			"--defaults-file="+r.myCnf(), "-uroot", "shutdown")
-		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)
+		if pw := secrets.RootPassword(); pw != "" {
+			cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)
+		}
 		_ = cmd.Run()
 	}
 	return process.Stop(r.mysqlSpec())
