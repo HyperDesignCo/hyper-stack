@@ -44,6 +44,10 @@ func EnsureCA(dir string) (string, error) {
 		IsCA:                  true,
 		BasicConstraintsValid: true,
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		// The CA may only ever vouch for *.test names. Without this, a stolen CA
+		// key could mint a trusted certificate for any website on this machine.
+		PermittedDNSDomainsCritical: true,
+		PermittedDNSDomains:         []string{"test"},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {

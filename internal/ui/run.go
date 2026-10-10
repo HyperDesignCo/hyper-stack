@@ -24,16 +24,16 @@ type instance struct {
 	Token string `json:"token"`
 }
 
-func instanceFile(p config.Paths) string { return filepath.Join(p.Run, "ui.json") }
+func instanceFile(p config.Paths) string { return filepath.Join(p.HomeRun, "ui.json") }
 
 func spec(p config.Paths, exe string) process.Spec {
-	return process.Spec{Name: "ui", Bin: exe, Args: []string{"ui", "--serve"}, Dir: p.Root, RunDir: p.Run, LogFile: filepath.Join(p.Logs, "ui.log"), NoTree: true}
+	return process.Spec{Name: "ui", Bin: exe, Args: []string{"ui", "--serve"}, Dir: p.Home, RunDir: p.HomeRun, LogFile: filepath.Join(p.HomeLogs, "ui.log"), NoTree: true}
 }
 
 // Launch makes sure the dashboard is running in the background and opens it.
 // It returns quickly; the dashboard keeps running after this process exits.
 func Launch(p config.Paths, exe string, openBrowser bool) (string, error) {
-	if err := p.Ensure(); err != nil {
+	if err := ensureHome(p); err != nil {
 		return "", err
 	}
 	sp := spec(p, exe)
@@ -77,11 +77,13 @@ func readInstance(p config.Paths) (instance, bool) {
 
 // Serve runs the dashboard and the tray icon in this process until the user quits.
 func Serve(p config.Paths, openBrowser bool) error {
-	if err := p.Ensure(); err != nil {
+	if err := ensureHome(p); err != nil {
 		return err
 	}
+	// Re-read the install location on every request: the install wizard can
+	// choose the folder while the dashboard is already running.
 	srv := New(func(out io.Writer) (*app.App, error) {
-		return app.NewAt(p, out, false)
+		return app.New(out, false)
 	})
 	l, err := srv.Listen(PreferredPort)
 	if err != nil {
@@ -99,7 +101,7 @@ func Serve(p config.Paths, openBrowser bool) error {
 	open := func() { _ = OpenBrowser(srv.URL()) }
 	stopAll := func() {
 		_, _ = srv.jobs.start("Stop all services", func(ctx context.Context, out io.Writer) error {
-			a, err := app.NewAt(p, out, false)
+			a, err := app.New(out, false)
 			if err != nil {
 				return err
 			}
@@ -123,4 +125,14 @@ func Stop(p config.Paths, exe string) bool {
 	_ = process.Stop(sp)
 	_ = os.Remove(instanceFile(p))
 	return true
+}
+
+// ensureHome creates only the fixed per-user folders, never an install folder.
+func ensureHome(p config.Paths) error {
+	for _, d := range []string{p.Home, p.HomeRun, p.HomeLogs} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -17,6 +17,9 @@ type Database struct {
 	Seed   bool   `json:"seed"`
 }
 
+// utf8BOM is the byte order mark Windows editors and PowerShell put at the start of UTF-8 files.
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
+
 // Config is the parsed hyper.json.
 type Config struct {
 	Name       string   `json:"name"`
@@ -58,6 +61,7 @@ func Load(path string) (*Config, error) {
 
 // Parse decodes and validates hyper.json content. Unknown fields are errors.
 func Parse(data []byte) (*Config, error) {
+	data = bytes.TrimPrefix(data, utf8BOM) // Windows editors and PowerShell add a UTF-8 BOM
 	var c Config
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()

@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -32,18 +31,21 @@ Open a new terminal afterwards so the new PATH is picked up.`,
 		if err != nil {
 			return err
 		}
-		if err := p.Ensure(); err != nil {
+		dir, err := config.AppDir()
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(p.HomeRun, 0o755); err != nil {
 			return err
 		}
 		if remove {
-			if err := selfinstall.Remove(filepath.Join(p.Root, "app")); err != nil {
+			if err := selfinstall.Remove(dir); err != nil {
 				return err
 			}
 			fmt.Println("Removed hyper from your PATH, the Start menu and login autostart. Your projects and data are untouched.")
 			return nil
 		}
 		cur, _ := os.Executable()
-		dir := filepath.Join(p.Root, "app")
 
 		// A running dashboard holds the old exe open: stop it, install, bring it back.
 		wasRunning := ui.Stop(p, cur)

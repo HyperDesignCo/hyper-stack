@@ -63,6 +63,9 @@ function renderSummary() {
     : "Runtime not installed";
   $("#btn-stopall").disabled = busy || !s.any_running;
   $("#btn-add").disabled = busy || !s.installed;
+  $("#btn-startall").disabled = busy || !s.installed || s.sites.length === 0;
+  $("#btn-www").disabled = !s.installed;
+  $("#www-path").textContent = s.www ? "Projects folder: " + s.www : "";
 }
 
 function renderBanner() {
@@ -70,9 +73,9 @@ function renderBanner() {
   b.replaceChildren();
   if (!state.installed) {
     b.append(h("div", { class: "banner warn" },
-      h("div", {}, h("b", {}, "Hyper Stack is not installed yet. "),
-        "It will download PHP, nginx, MySQL, Composer, Node and phpMyAdmin (about 300 MB) and ask for administrator permission once."),
-      h("button", { class: "btn primary", disabled: busy, onclick: () => start("/api/install", {}) }, "Install now")));
+      h("div", {}, h("b", {}, "Welcome. Hyper Stack is not installed yet. "),
+        "Choose a folder: PHP, MySQL, phpMyAdmin and the rest go inside it (about 300 MB), with a www folder for all your projects. Windows asks for administrator permission once."),
+      h("button", { class: "btn primary", disabled: busy, onclick: installWizard }, "Choose folder and install")));
   } else if (!state.hosts_writable) {
     b.append(h("div", { class: "banner warn" },
       h("div", {}, h("b", {}, "Setup is incomplete. "), "Hyper Stack cannot edit the hosts file or the local certificate is not trusted."),
@@ -80,7 +83,22 @@ function renderBanner() {
   }
 }
 
+function discoveredCard(p) {
+  return h("div", { class: "card project" },
+    h("div", { class: "name" }, p.name, pill(p.error ? "Needs attention" : "Not started", p.error ? "bad" : "")),
+    !p.error && h("div", { class: "url" }, p.domain),
+    h("div", { class: "meta" },
+      !p.error && h("span", { class: "tag" }, "PHP " + p.php),
+      !p.error && h("span", { class: "tag" }, "DB " + p.database),
+      !p.error && h("span", { class: "tag" }, p.auto ? "auto-detected" : "hyper.json")),
+    p.error && h("div", { class: "why" }, p.error),
+    h("div", { class: "path mono" }, p.root),
+    h("div", { class: "btnrow" },
+      h("button", { class: "btn primary", disabled: busy || !!p.error, onclick: () => start("/api/up", { path: p.root }) }, "Start")));
+}
+
 function projectCard(p) {
+  if (p.discovered) return discoveredCard(p);
   const running = p.workers.filter((w) => w.running).length;
   const workersDown = p.online && p.workers.length > 0 && running < p.workers.length;
   return h("div", { class: "card project" },
@@ -111,7 +129,7 @@ function renderProjects() {
   box.replaceChildren();
   if (state.sites.length === 0) {
     box.append(h("div", { class: "empty" },
-      state.installed ? "No projects yet. Click “Add project” and choose a folder that contains hyper.json."
+      state.installed ? "No projects yet. Put a folder inside your www folder (use Open www folder), then click Start. Every folder becomes <folder>.test."
         : "Install the runtime first, then add your projects."));
     return;
   }
@@ -140,7 +158,7 @@ function renderHealth() {
     h("div", {}, h("div", {}, f.title),
       !f.ok && f.detail && h("div", { class: "why mono" }, f.detail),
       !f.ok && f.fix && h("div", { class: "why" }, "Fix: " + f.fix)))));
-  $("#btn-fix").hidden = !health.some((f) => !f.ok && /doctor --fix/.test(f.fix || ""));
+  $("#btn-fix").hidden = !state.installed || !health.some((f) => !f.ok && /doctor --fix/.test(f.fix || ""));
 }
 
 function renderLogs() {
@@ -155,6 +173,7 @@ function renderLogs() {
 
 function renderPorts() {
   const f = $("#ports");
+  f.closest(".card").hidden = !state.installed; // before install the ports belong in the install wizard
   if (document.activeElement && f.contains(document.activeElement)) return; // don't overwrite typing
   f.http_port.value = state.settings.http_port;
   f.https_port.value = state.settings.https_port;
@@ -237,6 +256,27 @@ function watchJob(id) {
 }
 
 /* ---------- modals ---------- */
+
+async function installWizard() {
+  const input = h("input", { type: "text", id: "install-dir", value: state.default_dir || "C:/HyperStack", style: "flex:1;min-width:0" });
+  const browse = h("button", { class: "btn small", onclick: async () => {
+    try { const r = await api("/api/pick-folder", {}); if (r.path) input.value = r.path; } catch (e) { toast(e.message); }
+  } }, "Browse...");
+  const port = (id, v) => h("input", { type: "number", id, value: v, min: 1, max: 65535, style: "width:92px" });
+  const http = port("p-http", 80), https = port("p-https", 443), mysql = port("p-mysql", 3306);
+  const advanced = h("details", {},
+    h("summary", { class: "muted" }, "Advanced: ports (change only if Laragon or XAMPP is running)"),
+    h("div", { class: "row", style: "margin-top:8px" },
+      h("label", { class: "muted" }, "HTTP ", http), h("label", { class: "muted" }, "HTTPS ", https), h("label", { class: "muted" }, "MySQL ", mysql)));
+  modal("Where should Hyper Stack be installed?", [
+    h("p", {}, "This one folder will contain PHP, MySQL, phpMyAdmin, nginx and a www folder for all your projects. Use a short path with plain English letters."),
+    h("div", { class: "row" }, input, browse),
+    h("p", { class: "muted" }, "Every folder you create inside www becomes https://<folder>.test automatically."),
+    advanced,
+  ], "Install", () => start("/api/install", {
+    dir: input.value.trim(), http: +http.value || 0, https: +https.value || 0, mysql: +mysql.value || 0,
+  }));
+}
 
 function modal(title, bodyNodes, okText, onOk) {
   $("#modal-title").textContent = title;
@@ -327,6 +367,8 @@ function showLogsFor(p) {
 /* ---------- wiring ---------- */
 
 $("#btn-add").onclick = addProject;
+$("#btn-www").onclick = async () => { try { await api("/api/open-www", {}); } catch (e) { toast(e.message); } };
+$("#btn-startall").onclick = () => start("/api/up-all", {});
 $("#btn-stopall").onclick = () => modal("Stop all services?", [
   h("p", {}, "nginx, PHP and MySQL stop, so every project goes offline. Your files and databases are kept."),
 ], "Stop all", () => start("/api/stop-all", {}));

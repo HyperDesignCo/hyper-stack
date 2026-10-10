@@ -33,14 +33,14 @@ server {
     listen {{.HTTPSPort}} ssl;
     http2 on;
     server_name {{.Domain}};
-    root {{.WebRoot}};
-    index index.php;
+    root "{{.WebRoot}}";
+    index index.php index.html;
 
-    ssl_certificate {{.CertFile}};
-    ssl_certificate_key {{.KeyFile}};
+    ssl_certificate "{{.CertFile}}";
+    ssl_certificate_key "{{.KeyFile}}";
 
-    access_log {{.LogDir}}/{{.Domain}}.access.log;
-    error_log {{.LogDir}}/{{.Domain}}.error.log;
+    access_log "{{.LogDir}}/{{.Domain}}.access.log";
+    error_log "{{.LogDir}}/{{.Domain}}.error.log";
 
     client_max_body_size 64M;
 

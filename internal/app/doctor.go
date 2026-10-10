@@ -18,6 +18,7 @@ import (
 	"github.com/hyperdesign/hyper-stack/internal/hosts"
 	"github.com/hyperdesign/hyper-stack/internal/project"
 	rt "github.com/hyperdesign/hyper-stack/internal/runtime"
+	"github.com/hyperdesign/hyper-stack/internal/secrets"
 )
 
 // Finding is one doctor check result.
@@ -65,7 +66,7 @@ func (a *App) Checks(ctx context.Context) []Finding {
 	}
 
 	// Trust and hosts permission
-	if elevate.CATrusted() {
+	if elevate.CATrusted(filepath.Join(a.P.Certs, "ca", "rootCA.pem")) {
 		add(true, "Local CA is trusted", elevate.CAName, "")
 	} else {
 		add(false, "Local CA is not trusted", "Browsers will warn about https://*.test", "hyper doctor --fix")
@@ -129,7 +130,7 @@ func (a *App) reportDoctor(ctx context.Context, fs []Finding, fix bool) error {
 		if err != nil {
 			return err
 		}
-		if elevate.SetupNeeded() {
+		if elevate.SetupNeeded(caPath) {
 			if err := elevate.RunSetup(caPath); err != nil {
 				return err
 			}
@@ -166,7 +167,7 @@ func certDaysLeft(path string) (int, error) {
 
 // DBImport loads a .sql or .sql.gz file into the project's database.
 func (a *App) DBImport(ctx context.Context, dir, file string) error {
-	cfg, err := project.Load(filepath.Join(dir, "hyper.json"))
+	cfg, _, err := project.Resolve(dir)
 	if err != nil {
 		return err
 	}
@@ -228,4 +229,22 @@ func (p *progressReader) Read(b []byte) (int, error) {
 		}
 	}
 	return n, err
+}
+
+// DBInfo prints the connection details for the local MySQL, for plain PHP
+// projects that have no .env to fill in.
+func (a *App) DBInfo() error {
+	if err := a.requireInstalled(); err != nil {
+		return err
+	}
+	pw, err := secrets.MySQLRoot()
+	if err != nil {
+		return err
+	}
+	a.say("Host      127.0.0.1")
+	a.say("Port      %d", a.S.MySQLPort)
+	a.say("User      root")
+	a.say("Password  %s", pw)
+	a.say("phpMyAdmin %s", a.S.SiteURL(pmaDomain))
+	return nil
 }

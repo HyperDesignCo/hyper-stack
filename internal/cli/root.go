@@ -47,13 +47,49 @@ func Execute() error {
 	}
 	cwd := func() string { d, _ := os.Getwd(); return d }
 
-	root.AddCommand(&cobra.Command{
-		Use: "install", Short: "Install the local stack (PHP, nginx, MySQL, phpMyAdmin, Composer, Node)", Args: cobra.NoArgs,
-		RunE: run(func(ctx context.Context, a *app.App, _ []string) error { return a.Install(ctx) }),
+	install := &cobra.Command{
+		Use:   "install",
+		Short: "Install the local stack (PHP, nginx, MySQL, phpMyAdmin, Composer, Node) into a folder you choose",
+		Long: `Installs everything into ONE folder you choose (like C:\laragon), with a "www"
+folder inside it for all your projects. Every folder in www becomes <folder>.test.`,
+		Args: cobra.NoArgs,
+	}
+	install.Flags().String("dir", "", "install folder (asked interactively when omitted)")
+	install.Flags().Int("http-port", 0, "web port if 80 is taken (for example by Laragon)")
+	install.Flags().Int("https-port", 0, "HTTPS port if 443 is taken")
+	install.Flags().Int("mysql-port", 0, "MySQL port if 3306 is taken")
+	install.RunE = run(func(ctx context.Context, a *app.App, _ []string) error {
+		dir, _ := install.Flags().GetString("dir")
+		if dir == "" && !a.P.Configured {
+			var err error
+			if dir, err = askInstallDir(); err != nil {
+				return err
+			}
+		}
+		hp, _ := install.Flags().GetInt("http-port")
+		sp, _ := install.Flags().GetInt("https-port")
+		mp, _ := install.Flags().GetInt("mysql-port")
+		return a.InstallTo(ctx, dir, app.Ports{HTTP: hp, HTTPS: sp, MySQL: mp})
 	})
+	root.AddCommand(install)
+
+	up := &cobra.Command{
+		Use:   "up",
+		Short: "Start the project in the current folder (or every project in www with --all)",
+		Args:  cobra.NoArgs,
+	}
+	up.Flags().Bool("all", false, "start every project in the www folder")
+	up.RunE = run(func(ctx context.Context, a *app.App, _ []string) error {
+		if all, _ := up.Flags().GetBool("all"); all {
+			return a.UpAll(ctx)
+		}
+		return a.Up(ctx, cwd())
+	})
+	root.AddCommand(up)
+
 	root.AddCommand(&cobra.Command{
-		Use: "up", Short: "Start the project in the current folder", Args: cobra.NoArgs,
-		RunE: run(func(ctx context.Context, a *app.App, _ []string) error { return a.Up(ctx, cwd()) }),
+		Use: "www", Short: "Open the www folder where your projects live", Args: cobra.NoArgs,
+		RunE: run(func(ctx context.Context, a *app.App, _ []string) error { return a.OpenWWW() }),
 	})
 	down := &cobra.Command{
 		Use: "down", Short: "Stop the project's workers (--all stops shared services too)", Args: cobra.NoArgs,
@@ -70,9 +106,7 @@ func Execute() error {
 		defer a.Close()
 		dir := cwd()
 		if all {
-			if _, statErr := os.Stat(dir + string(os.PathSeparator) + "hyper.json"); statErr != nil {
-				dir = ""
-			}
+			dir = ""
 		}
 		return a.Down(cmd.Context(), dir, all)
 	}
@@ -99,6 +133,10 @@ func Execute() error {
 	root.AddCommand(&cobra.Command{
 		Use: "db:open", Short: "Open phpMyAdmin on the project's database", Args: cobra.NoArgs,
 		RunE: run(func(ctx context.Context, a *app.App, _ []string) error { return a.DBOpen(ctx, cwd()) }),
+	})
+	root.AddCommand(&cobra.Command{
+		Use: "db:info", Short: "Show the MySQL host, port, user and password (for plain PHP projects)", Args: cobra.NoArgs,
+		RunE: run(func(ctx context.Context, a *app.App, _ []string) error { return a.DBInfo() }),
 	})
 	root.AddCommand(&cobra.Command{
 		Use: "db:import <file.sql[.gz]>", Short: "Import a SQL dump into the project's database", Args: cobra.ExactArgs(1),

@@ -17,9 +17,9 @@ func TestRender(t *testing.T) {
 	}
 	for _, want := range []string{
 		"server_name bazooka.test;",
-		"root C:/work/bazooka/public;",
+		`root "C:/work/bazooka/public";`,
 		"fastcgi_pass 127.0.0.1:9083;",
-		"ssl_certificate C:/hs/certs/bazooka.test.pem;",
+		`ssl_certificate "C:/hs/certs/bazooka.test.pem";`,
 		"try_files $uri $uri/ /index.php?$query_string;",
 	} {
 		if !strings.Contains(out, want) {

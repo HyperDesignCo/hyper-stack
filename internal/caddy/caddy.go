@@ -19,8 +19,8 @@ type Site struct {
 
 const siteTmpl = `# Managed by Hyper Stack. Do not edit.
 {{.Domain}} {
-    tls {{.CertFile}} {{.KeyFile}}
-    root * {{.Root}}/public
+    tls "{{.CertFile}}" "{{.KeyFile}}"
+    root * "{{.Root}}/public"
     encode gzip
     request_body {
         max_size 64MB
@@ -30,7 +30,7 @@ const siteTmpl = `# Managed by Hyper Stack. Do not edit.
     php_fastcgi {{.FPMAddr}}
     file_server
     log {
-        output file {{.LogDir}}/{{.Domain}}.access.log
+        output file "{{.LogDir}}/{{.Domain}}.access.log"
     }
 }
 

@@ -4,6 +4,9 @@
 package elevate
 
 import (
+	"crypto/sha1" //nolint:gosec // see Thumbprint
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"os/exec"
@@ -33,16 +36,45 @@ func HostsWritable() bool {
 	return true
 }
 
-// CATrusted reports whether the Hyper Stack CA is in the machine trust store.
-func CATrusted() bool {
+// Thumbprint returns the SHA-1 fingerprint of the first certificate in a PEM
+// file, the same identifier Windows uses to find it in the trust store.
+func Thumbprint(pemPath string) (string, error) {
+	b, err := os.ReadFile(pemPath)
+	if err != nil {
+		return "", err
+	}
+	block, _ := pem.Decode(b)
+	if block == nil {
+		return "", fmt.Errorf("%s is not a PEM certificate", pemPath)
+	}
+	sum := sha1.Sum(block.Bytes) //nolint:gosec // SHA-1 is Windows' certificate identifier here, not a security check
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// CATrusted reports whether THIS CA certificate (not just one with the same
+// name) is in the machine trust store. A new install folder creates a new CA,
+// which must be trusted again.
+func CATrusted(caPath string) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	tp, err := Thumbprint(caPath)
+	if err != nil {
+		return false
+	}
+	return exec.Command("certutil", "-verifystore", "Root", tp).Run() == nil
+}
+
+// CATrustedByName reports whether any CA with our name is trusted (used by uninstall).
+func CATrustedByName() bool {
 	if runtime.GOOS != "windows" {
 		return false
 	}
 	return exec.Command("certutil", "-store", "Root", CAName).Run() == nil
 }
 
-// SetupNeeded reports whether hyper install must request elevation.
-func SetupNeeded() bool { return !HostsWritable() || !CATrusted() }
+// SetupNeeded reports whether hyper install must request elevation for this CA.
+func SetupNeeded(caPath string) bool { return !HostsWritable() || !CATrusted(caPath) }
 
 // RunSetup relaunches this executable elevated (one UAC prompt) to run Do("setup", ...).
 func RunSetup(caPath string) error {

@@ -59,17 +59,46 @@ func New(out io.Writer, verbose bool) (*App, error) {
 
 // NewAt builds an App for a specific layout (used by tests).
 func NewAt(p config.Paths, out io.Writer, verbose bool) (*App, error) {
-	if err := p.Ensure(); err != nil {
-		return nil, err
+	logDir := p.Logs
+	if p.Configured {
+		if err := p.Ensure(); err != nil {
+			return nil, err
+		}
+	} else {
+		// No install folder chosen yet: only the fixed home exists.
+		logDir = p.HomeLogs
+		for _, d := range []string{p.Home, p.HomeRun, p.HomeLogs} {
+			if err := os.MkdirAll(d, 0o755); err != nil {
+				return nil, err
+			}
+		}
 	}
 	s, err := p.LoadSettings()
 	if err != nil {
 		return nil, err
 	}
 	a := &App{P: p, S: s, Out: out, Verbose: verbose}
-	a.logFile, _ = os.OpenFile(filepath.Join(p.Logs, "hyper.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	a.logFile, _ = os.OpenFile(filepath.Join(logDir, "hyper.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	a.RT = direct.New(p, s, a.logf)
 	return a, nil
+}
+
+// retarget points the app at a (newly chosen) install folder.
+func (a *App) retarget(p config.Paths) error {
+	if err := p.Ensure(); err != nil {
+		return err
+	}
+	s, err := p.LoadSettings()
+	if err != nil {
+		return err
+	}
+	if a.logFile != nil {
+		_ = a.logFile.Close()
+	}
+	a.logFile, _ = os.OpenFile(filepath.Join(p.Logs, "hyper.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	a.P, a.S = p, s
+	a.RT = direct.New(p, s, a.logf)
+	return nil
 }
 
 // Close releases the log file.
@@ -94,9 +123,113 @@ func (a *App) say(format string, args ...any) { fmt.Fprintf(a.Out, format+"\n", 
 
 // ---------------------------------------------------------------- install
 
+// InstallTo installs into dir (the folder the user chose, like C:\laragon).
+// With an install already in place dir may be empty. Moving an existing
+// install to another folder is not supported: uninstall it first.
+// Ports optionally overrides the default 80 / 443 / 3306 (zero keeps the current value).
+type Ports struct{ HTTP, HTTPS, MySQL int }
+
+func (a *App) InstallTo(ctx context.Context, dir string, ports Ports) error {
+	if a.P.Configured {
+		if dir != "" {
+			want, err := config.ValidateInstallDir(dir)
+			if err != nil {
+				return err
+			}
+			if !strings.EqualFold(filepath.Clean(want), filepath.Clean(a.P.Root)) {
+				return fmt.Errorf("the install already lives in %s. To use a different folder run: hyper uninstall --purge, then install again", a.P.Root)
+			}
+		}
+		if err := a.applyPorts(ports); err != nil {
+			return err
+		}
+		return a.Install(ctx)
+	}
+	if dir == "" {
+		return fmt.Errorf("choose an install folder, for example: hyper install --dir %s", config.DefaultInstallDir())
+	}
+	abs, err := config.ValidateInstallDir(dir)
+	if err != nil {
+		return err
+	}
+	cand := a.S
+	ports.applyTo(&cand)
+	if err := a.preflightPorts(cand); err != nil {
+		return err // nothing has been created or saved yet
+	}
+	p, err := config.ForRoot(abs)
+	if err != nil {
+		return err
+	}
+	if err := a.retarget(p); err != nil {
+		return err
+	}
+	if err := config.SaveRoot(abs); err != nil {
+		return err
+	}
+	if err := a.applyPorts(ports); err != nil {
+		return err
+	}
+	return a.Install(ctx)
+}
+
+func (p Ports) applyTo(s *config.Settings) {
+	for _, c := range []struct {
+		v   int
+		dst *int
+	}{{p.HTTP, &s.HTTPPort}, {p.HTTPS, &s.HTTPSPort}, {p.MySQL, &s.MySQLPort}} {
+		if c.v > 0 && c.v <= 65535 {
+			*c.dst = c.v
+		}
+	}
+}
+
+func (a *App) applyPorts(p Ports) error {
+	for _, v := range []int{p.HTTP, p.HTTPS, p.MySQL} {
+		if v < 0 || v > 65535 {
+			return fmt.Errorf("%d is not a valid port", v)
+		}
+	}
+	before := a.S
+	p.applyTo(&a.S)
+	if a.S == before {
+		return nil
+	}
+	if err := a.P.SaveSettings(a.S); err != nil {
+		return err
+	}
+	a.RT = direct.New(a.P, a.S, a.logf)
+	return nil
+}
+
+// preflightPorts runs before any download. MySQL starts during install, so its
+// port must be free (this is where a running Laragon shows up); the web ports
+// only matter once a project starts, so they are a warning.
+func (a *App) preflightPorts(st config.Settings) error {
+	for _, c := range []struct {
+		port int
+		key  string
+		must bool
+	}{{st.MySQLPort, "mysql_port", true}, {st.HTTPPort, "http_port", false}, {st.HTTPSPort, "https_port", false}} {
+		o, busy := doctor.PortOwner(c.port)
+		if !busy || a.ownsProcess(o) {
+			continue
+		}
+		msg := fmt.Sprintf("port %d (%s) is used by %s (%s).\n  %s", c.port, c.key, o.Name, o.Path, doctor.Hint(o, c.port))
+		if c.must {
+			return fmt.Errorf("%s\n  Or install next to it on other ports: hyper install --dir <folder> --mysql-port 3307 --http-port 8080 --https-port 8443", msg)
+		}
+		a.say("  ! %s\n    (this only matters when you start a project)", msg)
+	}
+	return nil
+}
+
 // Install sets up the whole stack. Safe to run repeatedly.
 func (a *App) Install(ctx context.Context) error {
-	a.say("Installing Hyper Stack runtime into %s", a.P.Root)
+	a.say("Installing Hyper Stack into %s", a.P.Root)
+	if err := a.preflightPorts(a.S); err != nil {
+		return err
+	}
 	spec := rt.StackSpec{PHPVersions: []string{defaultPHP}, NodeVersion: defaultNode}
 	a.RT.Log = func(f string, args ...any) { a.say("  "+f, args...); a.logf(f, args...) }
 	if err := a.RT.EnsureInstalled(ctx, spec); err != nil {
@@ -107,12 +240,12 @@ func (a *App) Install(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if elevate.SetupNeeded() {
+	if elevate.SetupNeeded(caPath) {
 		a.say("Windows will ask for administrator permission once, to trust the local certificate and allow hosts-file edits.")
 		if err := elevate.RunSetup(caPath); err != nil {
 			return err
 		}
-		if elevate.SetupNeeded() {
+		if elevate.SetupNeeded(caPath) {
 			return fmt.Errorf("elevated setup finished but the CA or hosts permission is still missing: run hyper doctor")
 		}
 	}
@@ -121,7 +254,7 @@ func (a *App) Install(ctx context.Context) error {
 	if err := a.RT.EnsureMySQL(ctx); err != nil {
 		return err
 	}
-	a.say("Done. Next: cd into a project with hyper.json and run: hyper up")
+	a.say("Done. Put your projects in %s (each folder becomes <folder>.test), then run: hyper up --all", a.P.WWW)
 	return nil
 }
 
@@ -143,6 +276,8 @@ type Site struct {
 	Database  string   `json:"database"`
 	Workers   []string `json:"workers"`
 	SetupDone bool     `json:"setup_done"`
+	Auto      bool     `json:"auto,omitempty"` // configured from the folder, no hyper.json
+	WebRoot   string   `json:"web_root,omitempty"`
 }
 
 func (a *App) siteFile(name string) string { return filepath.Join(a.P.Sites, name+".json") }
@@ -179,16 +314,25 @@ func (a *App) sites() []Site {
 
 // Up brings the project in dir online.
 func (a *App) Up(ctx context.Context, dir string) error {
-	cfgPath := filepath.Join(dir, "hyper.json")
-	cfg, err := project.Load(cfgPath)
+	root, _ := filepath.Abs(dir)
+	cfg, auto, err := project.Resolve(root)
 	if err != nil {
 		return err
 	}
 	if err := a.requireInstalled(); err != nil {
 		return err
 	}
-	root, _ := filepath.Abs(dir)
-	a.say("Starting %s (%s, PHP %s)", cfg.Name, cfg.Domain, cfg.PHP)
+	if other, ok := a.loadSite(cfg.Name); ok && !strings.EqualFold(filepath.Clean(other.Root), filepath.Clean(root)) {
+		if _, statErr := os.Stat(other.Root); statErr == nil {
+			return fmt.Errorf("the name %q is already used by the project in %s. Rename one of the folders (or set a different \"name\" in hyper.json)", cfg.Name, other.Root)
+		}
+	}
+	webRoot := project.WebRoot(root)
+	if auto {
+		a.say("Starting %s (%s, PHP %s, detected from the folder)", cfg.Name, cfg.Domain, cfg.PHP)
+	} else {
+		a.say("Starting %s (%s, PHP %s)", cfg.Name, cfg.Domain, cfg.PHP)
+	}
 	for _, s := range cfg.Services {
 		a.say("  ! service %q is not supported yet and was skipped", s)
 	}
@@ -219,7 +363,7 @@ func (a *App) Up(ctx context.Context, dir string) error {
 
 	prev, _ := a.loadSite(cfg.Name)
 	site := Site{Name: cfg.Name, Domain: cfg.Domain, Root: root, PHP: cfg.PHP, Database: cfg.Database.Name,
-		Workers: cfg.Workers, SetupDone: prev.SetupDone}
+		Workers: cfg.Workers, SetupDone: prev.SetupDone, Auto: auto, WebRoot: webRoot}
 	if err := a.saveSite(site); err != nil {
 		return err
 	}
@@ -229,7 +373,7 @@ func (a *App) Up(ctx context.Context, dir string) error {
 	if err := a.ensurePMA(ctx); err != nil {
 		return err
 	}
-	if err := a.RT.RegisterSite(ctx, rt.Site{Name: cfg.Name, Domain: cfg.Domain, Root: root, PHP: cfg.PHP, CertPEM: cert, KeyPEM: key}); err != nil {
+	if err := a.RT.RegisterSite(ctx, rt.Site{Name: cfg.Name, Domain: cfg.Domain, Root: root, WebRoot: webRoot, PHP: cfg.PHP, CertPEM: cert, KeyPEM: key}); err != nil {
 		return err
 	}
 	if err := a.RT.StartService(ctx, direct.PHPService(cfg.PHP)); err != nil {
@@ -246,12 +390,15 @@ func (a *App) Up(ctx context.Context, dir string) error {
 	if err != nil {
 		return err
 	}
-	err = envfile.UpdateFile(root, map[string]string{
-		"APP_URL": a.S.SiteURL(cfg.Domain), "DB_CONNECTION": "mysql", "DB_HOST": "127.0.0.1",
-		"DB_PORT": fmt.Sprint(a.S.MySQLPort), "DB_DATABASE": cfg.Database.Name, "DB_USERNAME": "root", "DB_PASSWORD": pw,
-	})
-	if err != nil {
-		return err
+	// Plain PHP/WordPress-style folders have no Laravel .env to manage.
+	if !auto || project.IsLaravelLike(root) {
+		err = envfile.UpdateFile(root, map[string]string{
+			"APP_URL": a.S.SiteURL(cfg.Domain), "DB_CONNECTION": "mysql", "DB_HOST": "127.0.0.1",
+			"DB_PORT": fmt.Sprint(a.S.MySQLPort), "DB_DATABASE": cfg.Database.Name, "DB_USERNAME": "root", "DB_PASSWORD": pw,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	if !site.SetupDone && len(cfg.Setup) > 0 {
@@ -407,7 +554,7 @@ func envDelta(env []string) []string {
 // Down stops the project's workers; with all, also the shared services.
 func (a *App) Down(ctx context.Context, dir string, all bool) error {
 	if dir != "" {
-		if cfg, err := project.Load(filepath.Join(dir, "hyper.json")); err == nil {
+		if cfg, _, err := project.Resolve(dir); err == nil {
 			if s, ok := a.loadSite(cfg.Name); ok {
 				for i, w := range s.Workers {
 					if err := process.Stop(a.workerSpec(s, i, w)); err != nil {
@@ -483,7 +630,7 @@ func (a *App) Status(ctx context.Context) error {
 
 // DBOpen opens phpMyAdmin on the project's database.
 func (a *App) DBOpen(ctx context.Context, dir string) error {
-	cfg, err := project.Load(filepath.Join(dir, "hyper.json"))
+	cfg, _, err := project.Resolve(dir)
 	if err != nil {
 		return err
 	}
@@ -555,15 +702,18 @@ func (a *App) Uninstall(ctx context.Context, purge bool) error {
 		}
 		a.say("Removed the Hyper Stack block from the hosts file")
 	}
-	if elevate.CATrusted() || elevate.HostsWritable() {
+	if elevate.CATrustedByName() || elevate.HostsWritable() {
 		a.say("Windows will ask for administrator permission to remove the certificate trust and hosts permission.")
 		if err := elevate.RunTeardown(); err != nil {
 			return err
 		}
 	}
-	appDir := filepath.Join(a.P.Root, "app")
-	_ = process.Stop(process.Spec{Name: "ui", RunDir: a.P.Run, NoTree: true}) // the dashboard, if running
-	_ = os.Remove(filepath.Join(a.P.Run, "ui.json"))
+	appDir, err := config.AppDir()
+	if err != nil {
+		return err
+	}
+	_ = process.Stop(process.Spec{Name: "ui", RunDir: a.P.HomeRun, NoTree: true}) // the dashboard, if running
+	_ = os.Remove(filepath.Join(a.P.HomeRun, "ui.json"))
 	if err := selfinstall.Remove(appDir); err != nil {
 		return err
 	}
@@ -573,14 +723,19 @@ func (a *App) Uninstall(ctx context.Context, purge bool) error {
 			return err
 		}
 		a.Close()
-		return purgeDataDir(a.P.Root, a.say)
+		if err := purgeDataDir(a.P.Root, a.say); err != nil {
+			return err
+		}
+		return config.ClearRoot()
 	}
 	return nil
 }
 
-// purgeDataDir deletes the data directory. The running hyper.exe lives inside
-// it and Windows cannot delete a running exe, so everything else goes now and
-// the rest is removed by a helper shortly after this process exits.
+// purgeDataDir deletes everything Hyper Stack installed (runtimes, databases,
+// certificates, logs) but NEVER the www folder: that is where the user's
+// projects live. A folder holding the running hyper.exe (older installs kept it
+// inside the data folder) cannot be deleted on Windows while it runs, so it is
+// removed by a helper just after this process exits.
 func purgeDataDir(root string, say func(string, ...any)) error {
 	entries, err := os.ReadDir(root)
 	if err != nil {
@@ -590,26 +745,37 @@ func purgeDataDir(root string, say func(string, ...any)) error {
 		return err
 	}
 	exe, _ := os.Executable()
+	var later []string
+	kept := false
 	for _, e := range entries {
 		p := filepath.Join(root, e.Name())
+		if strings.EqualFold(e.Name(), "www") {
+			kept = true
+			continue
+		}
 		if e.IsDir() && strings.HasPrefix(strings.ToLower(exe), strings.ToLower(p)+string(filepath.Separator)) {
-			continue // holds the running exe
+			later = append(later, p)
+			continue
 		}
 		if err := os.RemoveAll(p); err != nil {
 			return fmt.Errorf("cannot delete %s: %w", p, err)
 		}
 	}
-	if left, _ := os.ReadDir(root); len(left) == 0 {
-		_ = os.Remove(root)
-		say("Deleted %s", root)
+	for _, p := range later {
+		cmd := exec.Command("cmd", "/C", fmt.Sprintf(`ping -n 4 127.0.0.1 >nul & rmdir /S /Q "%s"`, p))
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("could not schedule removal of %s: delete it manually after closing this window", p)
+		}
+		_ = cmd.Process.Release()
+	}
+	if kept {
+		say("Deleted the Hyper Stack runtime and databases. Your projects were NOT touched: %s", filepath.Join(root, "www"))
 		return nil
 	}
-	cmd := exec.Command("cmd", "/C", fmt.Sprintf(`ping -n 4 127.0.0.1 >nul & rmdir /S /Q "%s"`, root))
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("could not schedule removal of %s: delete it manually after closing this window", root)
+	if len(later) == 0 {
+		_ = os.Remove(root)
 	}
-	_ = cmd.Process.Release()
-	say("Deleting %s (finishing in a few seconds)", root)
+	say("Deleted %s", root)
 	return nil
 }
 

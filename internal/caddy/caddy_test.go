@@ -10,7 +10,7 @@ func TestRender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"a.test {", "tls /c/a.pem /c/a-key.pem", "root * /w/a/public", "php_fastcgi 127.0.0.1:9083", "redir https://a.test{uri}"} {
+	for _, want := range []string{"a.test {", `tls "/c/a.pem" "/c/a-key.pem"`, `root * "/w/a/public"`, "php_fastcgi 127.0.0.1:9083", "redir https://a.test{uri}"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q", want)
 		}

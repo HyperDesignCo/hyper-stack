@@ -43,11 +43,17 @@ type SiteInfo struct {
 	RootExists bool         `json:"root_exists"`
 	SetupDone  bool         `json:"setup_done"`
 	Workers    []WorkerInfo `json:"workers"`
+	Discovered bool         `json:"discovered"` // a www folder that was never started
+	Auto       bool         `json:"auto"`       // configured from the folder (no hyper.json)
+	Error      string       `json:"error,omitempty"`
 }
 
 // State is everything the dashboard shows.
 type State struct {
 	Installed   bool            `json:"installed"`
+	Configured  bool            `json:"configured"` // an install folder has been chosen
+	DefaultDir  string          `json:"default_dir"`
+	WWW         string          `json:"www"`
 	DataDir     string          `json:"data_dir"`
 	Settings    config.Settings `json:"settings"`
 	HostsWrite  bool            `json:"hosts_writable"`
@@ -67,7 +73,11 @@ func (a *App) State(ctx context.Context) State {
 		Services:  []ServiceInfo{},
 		Sites:     []SiteInfo{},
 		LogFiles:  a.logFiles(),
-		Installed: a.requireInstalled() == nil,
+		Installed: a.requireInstalled() == nil, Configured: a.P.Configured,
+		DefaultDir: config.DefaultInstallDir(),
+	}
+	if a.P.Configured {
+		st.WWW = a.P.WWW
 	}
 	svcs := []rt.Service{rt.Nginx, rt.MySQL}
 	entries, _ := os.ReadDir(filepath.Join(a.P.Bin, "php"))
@@ -90,7 +100,7 @@ func (a *App) State(ctx context.Context) State {
 	}
 	for _, s := range a.sites() {
 		si := SiteInfo{Name: s.Name, Domain: s.Domain, URL: a.S.SiteURL(s.Domain), Root: s.Root, PHP: s.PHP,
-			Database: s.Database, SetupDone: s.SetupDone, Workers: []WorkerInfo{}}
+			Database: s.Database, SetupDone: s.SetupDone, Workers: []WorkerInfo{}, Auto: s.Auto}
 		_, err := os.Stat(s.Root)
 		si.RootExists = err == nil
 		si.Online = nginxUp && a.RT.SiteRegistered(s.Name)
@@ -98,6 +108,16 @@ func (a *App) State(ctx context.Context) State {
 			si.Workers = append(si.Workers, WorkerInfo{Command: w, Running: process.Running(process.Spec{Name: workerName(s.Name, i), RunDir: a.P.Run})})
 		}
 		st.Sites = append(st.Sites, si)
+	}
+	if st.Installed {
+		for _, d := range a.Discover() {
+			st.Sites = append(st.Sites, SiteInfo{
+				Name: d.Name, Domain: d.Domain, Root: d.Root, PHP: d.PHP, Database: d.Database,
+				URL: a.S.SiteURL(d.Domain), RootExists: true, Workers: []WorkerInfo{},
+				Discovered: true, Auto: d.Auto, Error: d.Error,
+			})
+		}
+		sort.Slice(st.Sites, func(i, j int) bool { return st.Sites[i].Name < st.Sites[j].Name })
 	}
 	return st
 }
@@ -149,6 +169,7 @@ type Inspection struct {
 	Setup        []string        `json:"setup"`
 	Workers      []string        `json:"workers"`
 	Registered   bool            `json:"registered"`
+	Auto         bool            `json:"auto"`
 	NeedsConfirm bool            `json:"needs_confirm"` // first-run setup commands must be reviewed
 	Config       *project.Config `json:"-"`
 }
@@ -159,12 +180,12 @@ func (a *App) Inspect(dir string) (*Inspection, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := project.Load(filepath.Join(root, "hyper.json"))
+	cfg, auto, err := project.Resolve(root)
 	if err != nil {
 		return nil, err
 	}
 	prev, registered := a.loadSite(cfg.Name)
-	return &Inspection{
+	return &Inspection{Auto: auto,
 		Root: root, Name: cfg.Name, Domain: cfg.Domain, PHP: cfg.PHP, Database: cfg.Database.Name,
 		Extensions: orEmpty(cfg.Extensions), Setup: orEmpty(cfg.Setup), Workers: orEmpty(cfg.Workers),
 		Registered: registered, NeedsConfirm: len(cfg.Setup) > 0 && !prev.SetupDone, Config: cfg,

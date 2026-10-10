@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/hyperdesign/hyper-stack/internal/app"
+	"github.com/hyperdesign/hyper-stack/internal/config"
 )
 
 //go:embed web
@@ -165,8 +166,35 @@ func (s *Server) routes(mux *http.ServeMux) {
 		writeJSON(w, nil)
 	})
 
-	mux.HandleFunc("/api/install", s.post(func(w http.ResponseWriter, r *http.Request, _ *app.App) {
-		s.startJob(w, "Install runtime", func(ctx context.Context, a *app.App) error { return a.Install(ctx) })
+	mux.HandleFunc("/api/install", s.post(func(w http.ResponseWriter, r *http.Request, a *app.App) {
+		var in struct {
+			Dir                string
+			HTTP, HTTPS, MySQL int
+		}
+		if !decode(w, r, &in) {
+			return
+		}
+		if !a.P.Configured {
+			abs, err := config.ValidateInstallDir(in.Dir)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err)
+				return
+			}
+			in.Dir = abs
+		}
+		s.startJob(w, "Install Hyper Stack", func(ctx context.Context, a *app.App) error {
+			return a.InstallTo(ctx, in.Dir, app.Ports{HTTP: in.HTTP, HTTPS: in.HTTPS, MySQL: in.MySQL})
+		})
+	}))
+	mux.HandleFunc("/api/open-www", s.post(func(w http.ResponseWriter, r *http.Request, a *app.App) {
+		if err := a.OpenWWW(); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
+	}))
+	mux.HandleFunc("/api/up-all", s.post(func(w http.ResponseWriter, r *http.Request, _ *app.App) {
+		s.startJob(w, "Start all projects", func(ctx context.Context, a *app.App) error { return a.UpAll(ctx) })
 	}))
 	mux.HandleFunc("/api/pick-folder", s.post(func(w http.ResponseWriter, r *http.Request, _ *app.App) {
 		p, err := pickFolder(r.Context())

@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -157,10 +158,60 @@ func (r *Runtime) RegisterSite(ctx context.Context, site rt.Site) error {
 		return err
 	}
 	path := filepath.Join(dir, site.Name+".conf")
-	if old, err := os.ReadFile(path); err == nil && string(old) == conf {
+	old, readErr := os.ReadFile(path)
+	if readErr == nil && string(old) == conf {
 		return nil
 	}
-	return os.WriteFile(path, []byte(conf), 0o644)
+	if err := os.WriteFile(path, []byte(conf), 0o644); err != nil {
+		return err
+	}
+	// All sites share one nginx. Check before this site goes live, so one bad
+	// project can only fail itself. A broken file left by something else (an
+	// older Hyper Stack, a hand edit) is set aside instead of blocking everyone.
+	for attempt := 0; ; attempt++ {
+		out, err := r.testNginx()
+		if err == nil {
+			return nil
+		}
+		if bad := offendingConf(out, dir); bad != "" && !strings.EqualFold(bad, path) && attempt < 8 {
+			if os.Rename(bad, bad+".rejected") == nil {
+				r.Log("set aside a broken web config: %s (it is rebuilt the next time that project starts)", filepath.Base(bad))
+				continue
+			}
+		}
+		if readErr == nil {
+			_ = os.WriteFile(path, old, 0o644) //nolint:gosec // site config inside our own data directory; the name is a validated slug
+		} else {
+			_ = os.Remove(path)
+		}
+		return fmt.Errorf("the web server rejected the configuration for %q, so it was not activated (the other projects are unaffected): %s", site.Name, strings.TrimSpace(out))
+	}
+}
+
+var confInError = regexp.MustCompile(`in ((?:[A-Za-z]:)?[^\s"]+\.conf):\d+`)
+
+// offendingConf returns the site config file that "nginx -t" complained about,
+// if it is one of ours.
+func offendingConf(out, sitesDir string) string {
+	m := confInError.FindStringSubmatch(out)
+	if m == nil {
+		return ""
+	}
+	f := filepath.FromSlash(m[1])
+	rel, err := filepath.Rel(sitesDir, f)
+	if err != nil || strings.HasPrefix(rel, "..") || strings.ContainsRune(rel, filepath.Separator) {
+		return ""
+	}
+	return f
+}
+
+// testNginx runs "nginx -t" against the current configuration.
+func (r *Runtime) testNginx() (string, error) {
+	if err := r.writeNginxConf(); err != nil {
+		return "", err
+	}
+	s := r.nginxSpec()
+	return execCombined(s.Bin, s.Dir, append([]string{"-t"}, s.Args...)...)
 }
 
 // UnregisterSite removes a site's vhost.

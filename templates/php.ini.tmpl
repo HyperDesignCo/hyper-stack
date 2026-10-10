@@ -22,6 +22,11 @@ openssl.cafile = "{{.CABundle}}"
 zend_extension=opcache
 
 [opcache]
+; Windows names OPcache's shared memory per PHP build, so a second PHP of the same
+; version (another install, Laragon) cannot map it ("unusable due to ASLR").
+; The file cache lets such a process carry on instead of crashing.
+opcache.file_cache = "{{.OpcacheDir}}"
+opcache.file_cache_fallback = 1
 opcache.enable = 1
 opcache.validate_timestamps = 1
 opcache.revalidate_freq = 1

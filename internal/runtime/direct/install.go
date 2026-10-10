@@ -193,11 +193,16 @@ func (r *Runtime) writePHPIni(version string, extra []string) error {
 		return fmt.Errorf("PHP %s extension %q is not bundled with the official Windows build. "+
 			"Remove it from \"extensions\" in hyper.json or ask the platform team to add support", version, e)
 	}
+	opcacheDir := filepath.Join(r.P.Run, "opcache", version)
+	if err := os.MkdirAll(opcacheDir, 0o755); err != nil {
+		return err
+	}
 	ini, err := templates.Render("php.ini.tmpl", map[string]any{
 		"LogFile":    filepath.ToSlash(filepath.Join(r.P.Logs, "php-"+version+".log")),
 		"ExtDir":     ext,
 		"CABundle":   r.caBundle(),
 		"Extensions": enable,
+		"OpcacheDir": filepath.ToSlash(opcacheDir),
 	})
 	if err != nil {
 		return err

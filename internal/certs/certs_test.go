@@ -49,3 +49,39 @@ func TestLeafWithoutCAFailsClearly(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+// The CA is trusted by the whole machine, so it must be unable to vouch for
+// anything except .test names.
+func TestCACannotVouchForRealWebsites(t *testing.T) {
+	ca := t.TempDir()
+	caPath, err := EnsureCA(ca)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caPEM, _ := os.ReadFile(caPath)
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(caPEM)
+
+	issue := func(domain string) *x509.Certificate {
+		certPath, _, err := EnsureLeaf(ca, t.TempDir(), domain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := os.ReadFile(certPath)
+		p, _ := pem.Decode(b)
+		leaf, err := x509.ParseCertificate(p.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return leaf
+	}
+
+	good := issue("blog.test")
+	if _, err := good.Verify(x509.VerifyOptions{DNSName: "blog.test", Roots: pool}); err != nil {
+		t.Fatalf("a .test certificate must verify: %v", err)
+	}
+	bad := issue("google.com")
+	if _, err := bad.Verify(x509.VerifyOptions{DNSName: "google.com", Roots: pool}); err == nil {
+		t.Fatal("the CA vouched for google.com: it must be restricted to .test")
+	}
+}
