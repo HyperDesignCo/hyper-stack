@@ -140,10 +140,15 @@ folder inside it for all your projects. Every folder in www becomes <folder>.tes
 		Use: "db:info", Short: "Show the MySQL host, port, user and password (for plain PHP projects)", Args: cobra.NoArgs,
 		RunE: run(func(ctx context.Context, a *app.App, _ []string) error { return a.DBInfo() }),
 	})
-	root.AddCommand(&cobra.Command{
+	dbImport := &cobra.Command{
 		Use: "db:import <file.sql[.gz]>", Short: "Import a SQL dump into the project's database", Args: cobra.ExactArgs(1),
-		RunE: run(func(ctx context.Context, a *app.App, args []string) error { return a.DBImport(ctx, cwd(), args[0]) }),
+	}
+	dbImport.Flags().Bool("fresh", false, "empty the database first (its old contents are saved to a backup file)")
+	dbImport.RunE = run(func(ctx context.Context, a *app.App, args []string) error {
+		fresh, _ := dbImport.Flags().GetBool("fresh")
+		return a.DBImport(ctx, cwd(), args[0], fresh)
 	})
+	root.AddCommand(dbImport)
 	root.AddCommand(&cobra.Command{
 		Use: "config set <http_port|https_port|mysql_port> <port>", Short: "Change a port (for machines where 80/443/3306 are taken)",
 		Args: cobra.ExactArgs(3),

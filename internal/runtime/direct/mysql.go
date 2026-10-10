@@ -93,8 +93,7 @@ func (r *Runtime) CreateDatabase(ctx context.Context, name string) (bool, error)
 
 // ImportSQL streams SQL into a database.
 func (r *Runtime) ImportSQL(ctx context.Context, db string, in io.Reader) error {
-	cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysql.exe"),
-		"--defaults-file="+r.myCnf(), "-uroot", "--max-allowed-packet=64M", db)
+	cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysql.exe"), importArgs(r.myCnf(), db)...)
 	if pw := secrets.RootPassword(); pw != "" {
 		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)
 	}
@@ -105,6 +104,55 @@ func (r *Runtime) ImportSQL(ctx context.Context, db string, in io.Reader) error 
 		return fmt.Errorf("import failed: %w\n%s", err, tail(out.String(), 800))
 	}
 	return nil
+}
+
+// importArgs are the mysql client arguments for loading a dump. Foreign-key
+// checks are off while loading, exactly as mysqldump itself restores: dumps put
+// the constraints at the end, and real data often has rows that point at records
+// that no longer exist, which would otherwise stop the import on the last step.
+func importArgs(cnf, db string) []string {
+	return []string{"--defaults-file=" + cnf, "-uroot", "--max-allowed-packet=64M", "--init-command=SET FOREIGN_KEY_CHECKS=0", db}
+}
+
+// TableCount returns how many tables a database holds.
+func (r *Runtime) TableCount(ctx context.Context, db string) (int, error) {
+	out, err := r.mysql(ctx, secrets.RootPassword(), "", "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='"+db+"'")
+	if err != nil {
+		return 0, err
+	}
+	var n int
+	_, _ = fmt.Sscanf(strings.TrimSpace(lastLine(out)), "%d", &n)
+	return n, nil
+}
+
+// BackupDatabase writes a dump of db to file with mysqldump.
+func (r *Runtime) BackupDatabase(ctx context.Context, db, file string) error {
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		return err
+	}
+	cmd := exec.CommandContext(ctx, filepath.Join(r.mysqlDir(), "bin", "mysqldump.exe"),
+		"--defaults-file="+r.myCnf(), "-uroot", "--single-transaction", "--routines", "--triggers", "--no-tablespaces",
+		"--default-character-set=utf8mb4", "--result-file="+file, db)
+	if pw := secrets.RootPassword(); pw != "" {
+		cmd.Env = append(os.Environ(), "MYSQL_PWD="+pw)
+	}
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := cmd.Run(); err != nil {
+		_ = os.Remove(file)
+		return fmt.Errorf("backup failed: %w: %s", err, tail(out.String(), 400))
+	}
+	return nil
+}
+
+// ResetDatabase drops and recreates a database, leaving it empty.
+func (r *Runtime) ResetDatabase(ctx context.Context, db string) error {
+	pw := secrets.RootPassword()
+	if _, err := r.mysql(ctx, pw, "", "DROP DATABASE IF EXISTS `"+db+"`"); err != nil {
+		return err
+	}
+	_, err := r.mysql(ctx, pw, "", "CREATE DATABASE `"+db+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+	return err
 }
 
 // mysql runs one statement. extra is an optional single flag.

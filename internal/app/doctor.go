@@ -165,8 +165,10 @@ func certDaysLeft(path string) (int, error) {
 	return int(time.Until(c.NotAfter).Hours() / 24), nil
 }
 
-// DBImport loads a .sql or .sql.gz file into the project's database.
-func (a *App) DBImport(ctx context.Context, dir, file string) error {
+// DBImport loads a .sql or .sql.gz file into the project's database. With fresh,
+// the database is emptied first (its current contents are saved to a backup
+// file), which is what you want after an import that stopped half way.
+func (a *App) DBImport(ctx context.Context, dir, file string, fresh bool) error {
 	cfg, _, err := project.Resolve(dir)
 	if err != nil {
 		return err
@@ -187,11 +189,25 @@ func (a *App) DBImport(ctx context.Context, dir, file string) error {
 	if err := a.RT.EnsureMySQL(ctx); err != nil {
 		return err
 	}
-	if _, err := a.RT.CreateDatabase(ctx, cfg.Database.Name); err != nil {
+	db := cfg.Database.Name
+	if fresh {
+		if n, err := a.RT.TableCount(ctx, db); err == nil && n > 0 {
+			backup := filepath.Join(a.P.Root, "backups", fmt.Sprintf("%s-%s.sql", db, time.Now().Format("20060102-150405")))
+			a.say("Saving a backup of the %d existing table(s) first", n)
+			if err := a.RT.BackupDatabase(ctx, db, backup); err != nil {
+				return fmt.Errorf("not emptying %s because its backup failed: %w", db, err)
+			}
+			a.say("  backup: %s", backup)
+		}
+		if err := a.RT.ResetDatabase(ctx, db); err != nil {
+			return err
+		}
+		a.say("Emptied database %s", db)
+	} else if _, err := a.RT.CreateDatabase(ctx, db); err != nil {
 		return err
 	}
 
-	a.say("Importing %s into %s", filepath.Base(file), cfg.Database.Name)
+	a.say("Importing %s into %s", filepath.Base(file), db)
 	pr := &progressReader{r: f, total: st.Size(), out: a.Out}
 	var in io.Reader = pr
 	if strings.HasSuffix(strings.ToLower(file), ".gz") {
@@ -202,12 +218,22 @@ func (a *App) DBImport(ctx context.Context, dir, file string) error {
 		defer gz.Close()
 		in = gz
 	}
-	if err := a.RT.ImportSQL(ctx, cfg.Database.Name, in); err != nil {
-		return err
+	if err := a.RT.ImportSQL(ctx, db, in); err != nil {
+		return fmt.Errorf("%w\n%s", err, importHint(err))
 	}
 	fmt.Fprintln(a.Out)
 	a.say("Import finished")
 	return nil
+}
+
+// importHint says what to do after a failed import. The file is applied statement
+// by statement, so a failure part-way leaves what came before it in the database.
+func importHint(err error) string {
+	msg := err.Error()
+	if strings.Contains(msg, "already exists") {
+		return "The database already has these tables, probably from an earlier import. To start clean, import again with the option to replace the database (hyper db:import --fresh, or tick \"Replace the database\" in the dashboard). A backup of the old contents is saved first."
+	}
+	return "Part of the file may already be in the database. After fixing the cause, import again with the option to replace the database (hyper db:import --fresh, or tick \"Replace the database\" in the dashboard); a backup of the old contents is saved first."
 }
 
 // progressReader prints a percentage as the compressed/raw file is consumed.

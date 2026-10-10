@@ -23,3 +23,21 @@ func TestOffendingConf(t *testing.T) {
 		}
 	}
 }
+
+func TestImportTurnsForeignKeyChecksOff(t *testing.T) {
+	args := importArgs(`C:\x\my.cnf`, "medical")
+	has := func(want string) bool {
+		for _, a := range args {
+			if a == want {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("--init-command=SET FOREIGN_KEY_CHECKS=0") {
+		t.Errorf("a dump must load with foreign key checks off, as mysqldump restores: %v", args)
+	}
+	if args[len(args)-1] != "medical" || !has("-uroot") {
+		t.Errorf("database must be the last argument: %v", args)
+	}
+}

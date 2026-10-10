@@ -284,10 +284,25 @@ function watchJob(id) {
 
 /* ---------- modals ---------- */
 
+/* The folder/file chooser is a Windows window opened by the dashboard. Say so, and
+   do not open a second one while the first is still on screen. */
+let choosing = false;
+async function choose(kind) {
+  if (choosing) { toast("A chooser window is already open. Look for it on the taskbar."); return ""; }
+  choosing = true;
+  toast("A window is opening: choose the " + (kind === "folder" ? "folder" : "file") + " there. If you do not see it, look on the taskbar.");
+  try {
+    const r = await api(kind === "folder" ? "/api/pick-folder" : "/api/pick-file", {});
+    return r.path || "";
+  } finally {
+    choosing = false;
+  }
+}
+
 async function installWizard() {
   const input = h("input", { type: "text", id: "install-dir", value: state.default_dir || "C:/HyperStack", style: "flex:1;min-width:0" });
   const browse = h("button", { class: "btn small", onclick: async () => {
-    try { const r = await api("/api/pick-folder", {}); if (r.path) input.value = r.path; } catch (e) { toast(e.message); }
+    try { const path = await choose("folder"); if (path) input.value = path; } catch (e) { toast(e.message); }
   } }, "Browse...");
   const port = (id, v) => h("input", { type: "number", id, value: v, min: 1, max: 65535, style: "width:92px" });
   const http = port("p-http", 80), https = port("p-https", 443), mysql = port("p-mysql", 3306);
@@ -336,7 +351,7 @@ async function startProject(name) {
 
 async function addProject() {
   try {
-    const { path } = await api("/api/pick-folder", {});
+    const path = await choose("folder");
     if (!path) return;
     const ins = await api("/api/inspect", { path });
     modal("Add " + ins.name, [
@@ -355,12 +370,15 @@ async function addProject() {
 
 async function importDump(p) {
   try {
-    const { path } = await api("/api/pick-file", {});
+    const path = await choose("file");
     if (!path) return;
+    const fresh = h("input", { type: "checkbox", id: "import-fresh" });
     modal("Import into " + p.database, [
-      h("p", {}, "This replaces any tables in " + p.database + " that exist in the file."),
+      h("p", {}, "The file is loaded into " + p.database + ". Foreign keys are not checked while loading, like a normal restore."),
       h("div", { class: "path mono" }, path),
-    ], "Import", () => start("/api/import", { name: p.name, path }));
+      h("label", { class: "switch small" }, fresh, h("span", {}, "Replace the database: delete its current tables first")),
+      h("p", { class: "muted" }, "Tick this if an earlier import stopped half way, or if the file does not drop tables itself. What is there now is saved to a backup file first."),
+    ], "Import", () => start("/api/import", { name: p.name, path, fresh: fresh.checked }));
   } catch (e) {
     toast(e.message);
   }

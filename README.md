@@ -81,7 +81,7 @@ Projects whose `hyper.json` has first-time `setup` commands you have not reviewe
 | `hyper www` | Open the `www` folder |
 | `hyper status` | Services and projects |
 | `hyper doctor [--fix]` | Check ports (it names Laragon/XAMPP/IIS), certificate trust and hosts entries |
-| `hyper db:open` / `db:info` / `db:import dump.sql.gz` | phpMyAdmin / connection details / import with progress |
+| `hyper db:open` / `db:info` / `db:import dump.sql.gz` | phpMyAdmin / connection details / import with progress. Foreign keys are not checked while loading (like a normal restore). Add `--fresh` to empty the database first (its old contents are saved to `backups\`), for example after an import that stopped half way |
 | `hyper config set http_port 8080` | Move a port later (then `hyper down --all` and start again) |
 | `hyper autostart [on\|off\|add\|remove]` | What starts by itself at sign-in (see above) |
 | `hyper self-install [--autostart] [--remove]` | Put hyper.exe on PATH, Start menu, optional login start |

@@ -302,7 +302,10 @@ func (s *Server) routes(mux *http.ServeMux) {
 		s.startJob(w, "Open phpMyAdmin for "+in.Name, func(ctx context.Context, a *app.App) error { return a.DBOpen(ctx, root) })
 	}))
 	mux.HandleFunc("/api/import", s.post(func(w http.ResponseWriter, r *http.Request, a *app.App) {
-		var in struct{ Name, Path string }
+		var in struct {
+			Name, Path string
+			Fresh      bool
+		}
 		if !decode(w, r, &in) {
 			return
 		}
@@ -321,7 +324,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 			return
 		}
 		s.startJob(w, "Import "+filepath.Base(in.Path)+" into "+in.Name, func(ctx context.Context, a *app.App) error {
-			return a.DBImport(ctx, root, in.Path)
+			return a.DBImport(ctx, root, in.Path, in.Fresh)
 		})
 	}))
 	mux.HandleFunc("/api/pick-file", s.post(func(w http.ResponseWriter, r *http.Request, _ *app.App) {
