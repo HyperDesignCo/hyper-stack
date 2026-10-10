@@ -64,6 +64,12 @@ func unixPortOwner(port int) (Owner, bool) {
 			o.Name = l[1:]
 		}
 	}
+	if o.PID != 0 {
+		// On macOS ps reports the full path of the program in comm.
+		if p, err := exec.Command("ps", "-p", strconv.Itoa(o.PID), "-o", "comm=").Output(); err == nil {
+			o.Path = strings.TrimSpace(string(p))
+		}
+	}
 	return o, o.PID != 0
 }
 
