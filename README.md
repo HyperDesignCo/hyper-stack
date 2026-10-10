@@ -1,8 +1,8 @@
 # Hyper Stack
 
-A Laragon/XAMPP-style local environment for Hyper Design developers on Windows. You pick **one folder** at install time. PHP 7.4 to 8.4, nginx, MySQL 8, phpMyAdmin, Composer and Node go inside it, plus a **`www`** folder: every project you put in `www` is served at `https://<folder>.test`, with trusted HTTPS and no configuration.
+A Laragon/XAMPP-style local environment for Hyper Design developers on Windows and macOS. You pick **one folder** at install time. PHP 7.4 to 8.4, nginx, MySQL 8, phpMyAdmin, Composer and Node go inside it, plus a **`www`** folder: every project you put in `www` is served at `https://<folder>.test`, with trusted HTTPS and no configuration.
 
-Status: **Windows is supported. macOS is not implemented yet.**
+Status: **Windows and macOS are supported.** The macOS version is tested on every commit on a real GitHub macOS (Apple Silicon) machine: install, trusted HTTPS, PHP switching, moving the install and uninstall. See [macOS](#macos) for what differs.
 
 ## Install (Windows)
 
@@ -28,6 +28,25 @@ You can skip the question: `hyper install --dir D:\Hyper`.
 ```powershell
 hyper install --dir D:\Hyper --http-port 8080 --https-port 8443 --mysql-port 3307
 ```
+
+## macOS
+
+```bash
+gh release download --repo HyperDesignCo/hyper-stack --pattern install.sh --output install.sh --clobber
+bash install.sh --install
+```
+
+It puts `hyper` on your PATH (new Terminal windows), then asks where to install, like on Windows. macOS asks for your password **once** (to trust the local certificate and allow hosts-file edits).
+
+What differs from Windows:
+
+- **Caddy** is the web server and **php-fpm** runs PHP (one pool per PHP version). Everything else (MySQL 8, phpMyAdmin, Composer, Node, `www`, `*.test`, `hyper php`, `hyper db:import`, `hyper move`) works the same way.
+- **PHP 8.0 to 8.4 only.** There is no PHP 7.4 on macOS, so a Laravel 5.8 project cannot run unchanged on a Mac. Do that upgrade on Windows, or get the project to PHP 8.0 first.
+- The PHP builds are static and have no `pdo_sqlite`; MySQL projects are unaffected.
+- The MySQL build from Oracle needs a recent macOS (it is built for macOS 15). Older versions may refuse to start it; `hyper doctor` says so.
+- No menu-bar icon. Use `hyper ui` (the dashboard opens in your browser); `hyper self-install --autostart` starts it at login.
+- Firefox keeps its own certificate list: import the Hyper Stack CA there once, or use Safari/Chrome.
+- Tested on Apple Silicon. Intel Macs build and are expected to work but are not tested.
 
 ## Use
 
