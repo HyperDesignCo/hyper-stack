@@ -44,7 +44,7 @@ else
   curl -fsSL "$base/checksums.txt" -o "$tmp/checksums.txt"
 fi
 
-want="$(awk -v f="$asset" '$2==f {print $1}' "$tmp/checksums.txt")"
+want="$(tr -d '\r' < "$tmp/checksums.txt" | awk -v f="$asset" '$2==f {print $1}')"
 got="$(shasum -a 256 "$tmp/$asset" | awk '{print $1}')"
 [ -n "$want" ] && [ "$want" = "$got" ] || { echo "Checksum mismatch for $asset. Nothing was installed." >&2; exit 1; }
 

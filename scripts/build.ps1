@@ -48,7 +48,8 @@ $lines = foreach ($f in 'hyper-windows-amd64.zip', 'hyper-darwin-arm64', 'hyper-
     $h = (Get-FileHash "$dist\$f" -Algorithm SHA256).Hash.ToLower()
     "$h  $f"
 }
-$lines | Set-Content "$dist\checksums.txt" -Encoding ascii
+# LF line endings, so shasum -c and install.sh read it on a Mac
+[IO.File]::WriteAllText("$dist\checksums.txt", (($lines -join "`n") + "`n"))
 
 Get-ChildItem $dist | Select-Object Name, @{n = 'KB'; e = { [math]::Round($_.Length / 1KB) } }
 Write-Host "`nBuilt hyper $Version (commit $commit, $date)"
