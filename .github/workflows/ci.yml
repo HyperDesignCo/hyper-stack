@@ -18,6 +18,9 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
       - run: go test ./...
+      - name: Intel build of the native Mac window (cross-compiled on Apple Silicon)
+        if: runner.os == 'macOS'
+        run: CGO_ENABLED=1 GOARCH=amd64 go build -o /dev/null ./cmd/hyper
 
   lint:
     runs-on: ubuntu-latest
