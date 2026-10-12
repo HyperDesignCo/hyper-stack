@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !(darwin && cgo)
 
 package ui
 
@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/hyperdesign/hyper-stack/internal/app"
+	"github.com/hyperdesign/hyper-stack/internal/config"
 	"github.com/hyperdesign/hyper-stack/internal/tray"
 )
 
@@ -22,7 +23,7 @@ func runShell(srv *Server, show bool, quit func()) error {
 }
 
 // showWindow has nothing to show off Windows.
-func showWindow() bool { return false }
+func showWindow(config.Paths) bool { return false }
 
 // stopAllServices stops the web server, PHP and MySQL.
 func stopAllServices(ctx context.Context, out io.Writer) error {

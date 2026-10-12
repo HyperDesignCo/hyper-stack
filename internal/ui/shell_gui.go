@@ -1,4 +1,4 @@
-//go:build windows
+//go:build windows || (darwin && cgo)
 
 package ui
 
@@ -35,6 +35,3 @@ func runShell(srv *Server, show bool, quit func()) error {
 		WebURL:  srv.URL,
 	}, show, quit)
 }
-
-// showWindow brings a running window to the front.
-func showWindow() bool { return gui.Show() }

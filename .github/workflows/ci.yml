@@ -135,6 +135,26 @@ jobs:
           ./hyper doctor
           ./hyper db:info
 
+      - name: Native window
+        run: |
+          ./hyper ui --serve > "$RUNNER_TEMP/ui.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/ui.pid"
+          sleep 10
+          kill -0 "$(cat "$RUNNER_TEMP/ui.pid")" || { cat "$RUNNER_TEMP/ui.log"; exit 1; }
+          ./hyper ui   # a second launch asks the running window to come forward
+          sleep 3
+          kill -0 "$(cat "$RUNNER_TEMP/ui.pid")" || { cat "$RUNNER_TEMP/ui.log"; exit 1; }
+          /usr/sbin/screencapture -x "$RUNNER_TEMP/window.png" || true
+          cat "$RUNNER_TEMP/ui.log"
+          kill "$(cat "$RUNNER_TEMP/ui.pid")" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mac-window
+          path: ${{ runner.temp }}/window.png
+          if-no-files-found: ignore
+
       - name: Command line tools of the project
         run: |
           # composer and node come from the install, not from the machine

@@ -39,7 +39,7 @@ func Launch(p config.Paths, exe string, openBrowser, startup bool) (string, erro
 	if process.Running(sp) {
 		if in, ok := readInstance(p); ok {
 			u := fmt.Sprintf("http://127.0.0.1:%d/?t=%s", in.Port, in.Token)
-			if openBrowser && !showWindow() {
+			if openBrowser && !showWindow(p) {
 				_ = OpenBrowser(u)
 			}
 			return u, nil

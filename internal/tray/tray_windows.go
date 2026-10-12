@@ -2,12 +2,16 @@
 
 package tray
 
-import "fyne.io/systray"
+import (
+	"fyne.io/systray"
+
+	"github.com/hyperdesign/hyper-stack/internal/brand"
+)
 
 // Run shows the tray icon and blocks until Quit is chosen or stop() is called.
 func Run(open, stopAll func(), onQuit func()) {
 	systray.Run(func() {
-		systray.SetIcon(icon())
+		systray.SetIcon(brand.ICO())
 		systray.SetTitle("Hyper Stack")
 		systray.SetTooltip("Hyper Stack: local Laravel environments")
 		mOpen := systray.AddMenuItem("Open dashboard", "Open the Hyper Stack dashboard")
@@ -35,4 +39,4 @@ func Run(open, stopAll func(), onQuit func()) {
 func Stop() { systray.Quit() }
 
 // Icon is the tray icon as an .ico file's bytes.
-func Icon() []byte { return icon() }
+func Icon() []byte { return brand.ICO() }
