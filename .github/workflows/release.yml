@@ -9,7 +9,33 @@ permissions:
   contents: write
 
 jobs:
+  # The native macOS window is AppKit code, so the Mac programs are built on a Mac.
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build both processors
+        run: |
+          commit=$(git rev-parse --short HEAD)
+          date=$(date -u +%Y-%m-%d)
+          pkg=github.com/hyperdesign/hyper-stack/internal/cli
+          mkdir macbin
+          for arch in arm64 amd64; do
+            CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go build -trimpath               -ldflags "-s -w -X $pkg.Version=${{ github.ref_name }} -X $pkg.Commit=$commit -X $pkg.Date=$date"               -o macbin/hyper-darwin-$arch ./cmd/hyper
+          done
+          file macbin/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macbin
+          path: macbin/
+
   release:
+    needs: mac
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,9 +51,14 @@ jobs:
           go vet ./...
           go test ./...
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: macbin
+          path: macbin
+
       - name: Build, zip and checksum
         shell: pwsh
-        run: ./scripts/build.ps1 -Version "${{ github.ref_name }}"
+        run: ./scripts/build.ps1 -Version "${{ github.ref_name }}" -MacDir macbin
 
       - name: Publish release
         shell: pwsh

@@ -349,6 +349,7 @@ static void buildStatusItem(void) {
 
 void hs_run(int showAtStart) {
     @autoreleasepool {
+        [[NSProcessInfo processInfo] setProcessName:@"Hyper Stack"];
         [NSApplication sharedApplication];
         ctl = [HSCtl new];
         NSApp.delegate = ctl;

@@ -137,16 +137,15 @@ jobs:
 
       - name: Native window
         run: |
-          ./hyper ui --serve > "$RUNNER_TEMP/ui.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/ui.pid"
+          ./hyper ui   # starts the window in the background, like the Start menu entry does
           sleep 10
-          kill -0 "$(cat "$RUNNER_TEMP/ui.pid")" || { cat "$RUNNER_TEMP/ui.log"; exit 1; }
+          pidfile="$HOME/Library/Application Support/HyperStack/run/ui.pid"
+          kill -0 "$(cat "$pidfile")" || { cat "$HOME/Library/Application Support/HyperStack/logs/ui.log"; exit 1; }
+          /usr/sbin/screencapture -x "$RUNNER_TEMP/window.png" || true
           ./hyper ui   # a second launch asks the running window to come forward
           sleep 3
-          kill -0 "$(cat "$RUNNER_TEMP/ui.pid")" || { cat "$RUNNER_TEMP/ui.log"; exit 1; }
-          /usr/sbin/screencapture -x "$RUNNER_TEMP/window.png" || true
-          cat "$RUNNER_TEMP/ui.log"
-          kill "$(cat "$RUNNER_TEMP/ui.pid")" || true
+          kill -0 "$(cat "$pidfile")" || { cat "$HOME/Library/Application Support/HyperStack/logs/ui.log"; exit 1; }
+          cat "$HOME/Library/Application Support/HyperStack/logs/ui.log"
 
       - uses: actions/upload-artifact@v4
         if: always()

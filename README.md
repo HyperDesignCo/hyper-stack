@@ -50,7 +50,7 @@ What differs from Windows:
 - **PHP 8.0 to 8.4 only.** There is no PHP 7.4 on macOS, so a Laravel 5.8 project cannot run unchanged on a Mac. Do that upgrade on Windows, or get the project to PHP 8.0 first.
 - The PHP builds are static and have no `pdo_sqlite`; MySQL projects are unaffected.
 - Needs **macOS 14 or newer** (the MySQL build from Oracle is built for it). Tested on macOS 26 only.
-- No menu-bar icon. Use `hyper ui` (the dashboard opens in your browser); `hyper self-install --autostart` starts it at login.
+- A native window with a menu bar icon, same screens as Windows (`hyper ui`). Closing the window keeps your sites running; **Quit** in the menu bar icon closes the app. The browser version is under **Open in the browser** there. `hyper self-install --autostart` starts it at login.
 - Firefox keeps its own certificate list: import the Hyper Stack CA there once, or use Safari/Chrome.
 - Tested on Apple Silicon. Intel Macs build and are expected to work but are not tested.
 
@@ -113,7 +113,7 @@ Projects whose `hyper.json` has first-time `setup` commands you have not reviewe
 
 | Command | What it does |
 | --- | --- |
-| `hyper ui` | The window and tray icon (on macOS: the dashboard in your browser) |
+| `hyper ui` | The window and tray icon (native on both Windows and macOS) |
 | `hyper up` / `hyper up --all` | Start the project in the current folder / every project in `www` |
 | `hyper down` | Stop the project's workers (`--all` also stops nginx, PHP and MySQL) |
 | `hyper www` | Open the `www` folder |

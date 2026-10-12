@@ -6,7 +6,9 @@
   Usage:  .\scripts\build.ps1 -Version 0.1.0
 #>
 param(
-    [string]$Version = '0.0.0-dev'
+    [string]$Version = '0.0.0-dev',
+    # Folder holding hyper-darwin-arm64 and hyper-darwin-amd64 built on a Mac (the native macOS window needs a Mac to compile).
+    [string]$MacDir = ''
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -35,11 +37,16 @@ Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED
 
 Compress-Archive -Path "$dist\hyper.exe" -DestinationPath "$dist\hyper-windows-amd64.zip" -Force
 Remove-Item "$dist\hyper.exe"
-foreach ($arch in 'arm64', 'amd64') {
-    $env:GOOS = 'darwin'; $env:GOARCH = $arch; $env:CGO_ENABLED = '0'
-    go build -trimpath -ldflags "-s -w -X $pkg.Version=$Version -X $pkg.Commit=$commit -X $pkg.Date=$date" -o "$dist\hyper-darwin-$arch" .\cmd\hyper
-    if ($LASTEXITCODE) { throw "macOS $arch build failed" }
-    Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED
+if ($MacDir) {
+    foreach ($arch in 'arm64', 'amd64') { Copy-Item (Join-Path $MacDir "hyper-darwin-$arch") "$dist\hyper-darwin-$arch" }
+} else {
+    # Without a Mac build these are the browser-dashboard-only fallbacks
+    foreach ($arch in 'arm64', 'amd64') {
+        $env:GOOS = 'darwin'; $env:GOARCH = $arch; $env:CGO_ENABLED = '0'
+        go build -trimpath -ldflags "-s -w -X $pkg.Version=$Version -X $pkg.Commit=$commit -X $pkg.Date=$date" -o "$dist\hyper-darwin-$arch" .\cmd\hyper
+        if ($LASTEXITCODE) { throw "macOS $arch build failed" }
+        Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED
+    }
 }
 Copy-Item "$root\scripts\install.ps1" "$dist\install.ps1"
 Copy-Item "$root\scripts\install.sh" "$dist\install.sh"
