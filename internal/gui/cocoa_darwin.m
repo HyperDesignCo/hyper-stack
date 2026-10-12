@@ -112,7 +112,7 @@ static NSTextField *makeLabel(NSString *s) {
     return l;
 }
 
-static NSScrollView *makeText(NSTextView **out) {
+static NSScrollView *makeText(NSTextView *__strong *out) {
     NSScrollView *sv = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 400, 100)];
     sv.hasVerticalScroller = YES;
     sv.borderType = NSBezelBorder;
@@ -129,7 +129,7 @@ static NSScrollView *makeText(NSTextView **out) {
     return sv;
 }
 
-static NSScrollView *makeTable(NSTableView **out, HSTable *data, NSArray *titles, NSArray *widths) {
+static NSScrollView *makeTable(NSTableView *__strong *out, HSTable *data, NSArray *titles, NSArray *widths) {
     NSScrollView *sv = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 500, 300)];
     sv.hasVerticalScroller = YES;
     sv.borderType = NSBezelBorder;
