@@ -33,3 +33,6 @@ func Run(open, stopAll func(), onQuit func()) {
 
 // Stop removes the icon and makes Run return.
 func Stop() { systray.Quit() }
+
+// Icon is the tray icon as an .ico file's bytes.
+func Icon() []byte { return icon() }

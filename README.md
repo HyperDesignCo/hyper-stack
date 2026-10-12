@@ -56,7 +56,7 @@ What differs from Windows:
 
 ## Use
 
-1. Open **Hyper Stack** from the Start menu (or run `hyper ui`). **Open www folder** opens the folder in Explorer.
+1. Open **Hyper Stack** from the Start menu (or run `hyper ui`). On Windows this is a normal desktop window with a tray icon: closing the window keeps your sites running, **Quit** in the tray menu closes the app. **Open www folder** opens the folder in Explorer. The tray menu also has **Open in the browser** for the web version of the same screens.
 2. Put a project folder inside `www`, for example `www\blog`.
 3. Click **Start** (or **Start all**), or run `hyper up --all`. Open `https://blog.test`.
 
@@ -85,7 +85,7 @@ Add a `hyper.json` only when you need more control (a specific PHP version or ex
 }
 ```
 
-First-time `setup` commands come from the project's own repository, so **Start all never runs them**. Start such a project on its own (the dashboard shows the commands and asks you to confirm; on the command line `cd` into it and run `hyper up`).
+First-time `setup` commands come from the project's own repository, so **Start all never runs them**. Start such a project on its own (the window shows the commands and asks you to confirm; on the command line `cd` into it and run `hyper up`).
 
 ### Upgrading an old project (for example Laravel 5.8 to 12)
 
@@ -102,7 +102,7 @@ Old PHP versions are there for this. A project runs on the PHP it needs, and you
 
 ### Start automatically
 
-Two separate switches, in the dashboard (**Startup** card, and **Start at login** on each project) or on the command line:
+Two separate switches, in the window (**Settings** tab, and **Start with Hyper Stack** on each project) or on the command line:
 
 - **Start Hyper Stack when I sign in to Windows**: the tray icon and dashboard start by themselves (`hyper autostart on` / `off`).
 - **Start at login, per project**: at sign-in Hyper Stack also brings up every flagged project, and nginx, PHP and MySQL as they need (`hyper autostart add [folder]` / `remove [folder]`).
@@ -113,7 +113,7 @@ Projects whose `hyper.json` has first-time `setup` commands you have not reviewe
 
 | Command | What it does |
 | --- | --- |
-| `hyper ui` | The dashboard and tray icon |
+| `hyper ui` | The window and tray icon (on macOS: the dashboard in your browser) |
 | `hyper up` / `hyper up --all` | Start the project in the current folder / every project in `www` |
 | `hyper down` | Stop the project's workers (`--all` also stops nginx, PHP and MySQL) |
 | `hyper www` | Open the `www` folder |

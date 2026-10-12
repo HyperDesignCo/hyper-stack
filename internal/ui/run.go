@@ -13,7 +13,6 @@ import (
 	"github.com/hyperdesign/hyper-stack/internal/app"
 	"github.com/hyperdesign/hyper-stack/internal/config"
 	"github.com/hyperdesign/hyper-stack/internal/process"
-	"github.com/hyperdesign/hyper-stack/internal/tray"
 )
 
 // PreferredPort is the dashboard's usual port, so the address is stable.
@@ -40,7 +39,7 @@ func Launch(p config.Paths, exe string, openBrowser, startup bool) (string, erro
 	if process.Running(sp) {
 		if in, ok := readInstance(p); ok {
 			u := fmt.Sprintf("http://127.0.0.1:%d/?t=%s", in.Port, in.Token)
-			if openBrowser {
+			if openBrowser && !showWindow() {
 				_ = OpenBrowser(u)
 			}
 			return u, nil
@@ -101,17 +100,6 @@ func Serve(p config.Paths, openBrowser, startup bool) error {
 	}
 	defer func() { _ = os.Remove(instanceFile(p)) }()
 
-	open := func() { _ = OpenBrowser(srv.URL()) }
-	stopAll := func() {
-		_, _ = srv.jobs.start("Stop all services", func(ctx context.Context, out io.Writer) error {
-			a, err := app.New(out, false)
-			if err != nil {
-				return err
-			}
-			defer a.Close()
-			return a.Down(ctx, "", true)
-		})
-	}
 	if startup {
 		// Signed in to Windows: bring up the projects flagged to start automatically.
 		_, _ = srv.jobs.start("Start my autostart projects", func(ctx context.Context, out io.Writer) error {
@@ -126,11 +114,7 @@ func Serve(p config.Paths, openBrowser, startup bool) error {
 			return a.UpAutostart(ctx)
 		})
 	}
-	if openBrowser {
-		open()
-	}
-	tray.Run(open, stopAll, func() { _ = httpSrv.Close() })
-	return nil
+	return runShell(srv, openBrowser, func() { _ = httpSrv.Close() })
 }
 
 // Stop stops the background dashboard if it is running and reports whether it was.

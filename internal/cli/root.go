@@ -175,7 +175,7 @@ folder inside it for all your projects. Every folder in www becomes <folder>.tes
 	}
 	root.AddCommand(un)
 
-	uiCmd := &cobra.Command{Use: "ui", Short: "Open the dashboard and tray icon (no PowerShell needed)", Args: cobra.NoArgs}
+	uiCmd := &cobra.Command{Use: "ui", Short: "Open the Hyper Stack window and tray icon (no PowerShell needed)", Args: cobra.NoArgs}
 	uiCmd.Flags().Bool("serve", false, "run the dashboard in this process (used internally)")
 	uiCmd.Flags().Bool("no-browser", false, "do not open the browser")
 	uiCmd.Flags().Bool("startup", false, "started at Windows sign-in: also start the autostart projects")
