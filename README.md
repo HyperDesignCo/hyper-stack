@@ -4,7 +4,7 @@ A Laragon/XAMPP-style local environment for Hyper Design developers on Windows a
 
 Status: **Windows and macOS are supported.** The macOS version is tested on every commit on a real GitHub macOS (Apple Silicon) machine: install, trusted HTTPS, PHP switching, moving the install and uninstall. See [macOS](#macos) for what differs.
 
-Current release: **v0.7.0** (native Windows window; macOS since v0.6.0). Both installers fetch the latest release; to pin this one, pass `-Version v0.7.0` (Windows) or `--version v0.7.0` (macOS).
+Current release: **v0.8.0** (native window on Windows and macOS). Both installers fetch the latest release; to pin this one, pass `-Version v0.8.0` (Windows) or `--version v0.8.0` (macOS).
 
 ## Install (Windows)
 
@@ -15,7 +15,7 @@ gh release download --repo HyperDesignCo/hyper-stack --pattern install.ps1 --out
 powershell -ExecutionPolicy Bypass -File .\install.ps1 -Install
 ```
 
-Options: `-Version v0.7.0`, `-Autostart` (start at sign-in), `-Install` (also run `hyper install`).
+Options: `-Version v0.8.0`, `-Autostart` (start at sign-in), `-Install` (also run `hyper install`).
 
 It puts `hyper.exe` on your PATH, adds a **Hyper Stack** Start menu entry, then asks **where to install**:
 
@@ -40,7 +40,7 @@ gh release download --repo HyperDesignCo/hyper-stack --pattern install.sh --outp
 bash install.sh --install
 ```
 
-Options: `--version v0.7.0`, `--autostart` (start at login), `--install` (also run `hyper install`, about 400 MB). Without `--install`, open a new Terminal and run `hyper install` yourself.
+Options: `--version v0.8.0`, `--autostart` (start at login), `--install` (also run `hyper install`, about 400 MB). Without `--install`, open a new Terminal and run `hyper install` yourself.
 
 It puts `hyper` on your PATH (new Terminal windows), then asks where to install, like on Windows. macOS asks for your password **once** (to trust the local certificate and allow hosts-file edits).
 
