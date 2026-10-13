@@ -25,6 +25,9 @@ var (
 
 // Execute runs the root command.
 func Execute() error {
+	// cobra refuses to run when started from Explorer ("This is a command line tool").
+	// The Start menu entry starts us from Explorer on purpose, to open the window.
+	cobra.MousetrapHelpText = ""
 	root := &cobra.Command{
 		Use:           "hyper",
 		Short:         "Hyper Stack: local Laravel environments for Hyper Design",
