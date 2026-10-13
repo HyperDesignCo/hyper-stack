@@ -23,6 +23,7 @@ type job struct {
 	ID      string
 	Title   string
 	mu      sync.Mutex
+	cancel  context.CancelFunc
 	status  string // running | done | failed
 	err     string
 	lines   []string
@@ -63,8 +64,11 @@ func (m *jobManager) start(title string, run func(context.Context, io.Writer) er
 		delete(m.jobs, m.ids[0])
 		m.ids = m.ids[1:]
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	j.cancel = cancel
 	go func() {
-		err := run(context.Background(), j)
+		defer cancel()
+		err := run(ctx, j)
 		j.mu.Lock()
 		defer j.mu.Unlock()
 		if err != nil {
@@ -75,6 +79,24 @@ func (m *jobManager) start(title string, run func(context.Context, io.Writer) er
 		}
 	}()
 	return j, nil
+}
+
+// cancelCurrent asks the running operation to stop. It reports whether one was running.
+func (m *jobManager) cancelCurrent() bool {
+	m.mu.Lock()
+	j := m.cur
+	m.mu.Unlock()
+	if j == nil {
+		return false
+	}
+	j.mu.Lock()
+	running, cancel := j.status == "running", j.cancel
+	j.mu.Unlock()
+	if running && cancel != nil {
+		cancel()
+		return true
+	}
+	return false
 }
 
 func (m *jobManager) get(id string) (*job, bool) {

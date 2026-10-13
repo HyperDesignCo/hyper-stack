@@ -15,6 +15,8 @@ type Jobs interface {
 	Start(title string, fn func(ctx context.Context, out io.Writer) error) error
 	// Snapshot describes the current (or last) operation. status is "", "running", "done" or "failed".
 	Snapshot() (title, status, errText, log string)
+	// Cancel asks the running operation to stop and reports whether there was one.
+	Cancel() bool
 }
 
 // Backend is what the window needs from the rest of the program.

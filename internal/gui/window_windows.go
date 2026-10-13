@@ -167,6 +167,7 @@ type window struct {
 	lastJobStatus                                  string
 	lastLog                                        string
 	lastLabel                                      string
+	btnCancel                                      *walk.PushButton
 	selected                                       string
 	shownPHP, shownLogs                            []string
 	ignoreToggle                                   bool
@@ -261,7 +262,11 @@ func (w *window) build() error {
 					}},
 				},
 			},
-			Label{AssignTo: &w.jobTitle, Text: ""},
+			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+				Label{AssignTo: &w.jobTitle, Text: ""},
+				HSpacer{},
+				PushButton{AssignTo: &w.btnCancel, Text: "Cancel this operation", Visible: false, OnClicked: func() { w.b.Jobs.Cancel() }},
+			}},
 			TextEdit{AssignTo: &w.jobLog, ReadOnly: true, VScroll: true, MinSize: Size{Height: 110}, MaxSize: Size{Height: 140}},
 		},
 	}.Create()
@@ -557,6 +562,7 @@ func (w *window) showJob(title, st, errText, log string) {
 		w.jobLog.SetTextSelection(n, n)
 		w.jobLog.ScrollToCaret()
 	}
+	w.btnCancel.SetVisible(st == "running")
 	if st != w.lastJobStatus {
 		prev := w.lastJobStatus
 		w.lastJobStatus = st

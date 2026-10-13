@@ -17,6 +17,8 @@ func (g guiJobs) Start(title string, fn func(ctx context.Context, out io.Writer)
 	return err
 }
 
+func (g guiJobs) Cancel() bool { return g.m.cancelCurrent() }
+
 func (g guiJobs) Snapshot() (title, status, errText, log string) {
 	j := g.m.current()
 	if j == nil {

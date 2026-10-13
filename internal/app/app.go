@@ -431,8 +431,13 @@ func (a *App) waitSite(ctx context.Context, domain string) error {
 	addr := fmt.Sprintf("127.0.0.1:%d", a.S.HTTPSPort)
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
+		// Every attempt is bounded: a server that accepts the connection but never answers
+		// must not keep the start button "working" forever.
+		try, cancel := context.WithTimeout(ctx, 3*time.Second)
 		d := tls.Dialer{Config: &tls.Config{ServerName: domain, InsecureSkipVerify: true}} //nolint:gosec // only inspecting which cert is served
-		if c, err := d.DialContext(ctx, "tcp", addr); err == nil {
+		c, err := d.DialContext(try, "tcp", addr)
+		cancel()
+		if err == nil {
 			state := c.(*tls.Conn).ConnectionState()
 			_ = c.Close()
 			if len(state.PeerCertificates) > 0 && state.PeerCertificates[0].VerifyHostname(domain) == nil {
