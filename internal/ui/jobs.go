@@ -82,7 +82,7 @@ func (m *jobManager) start(title string, run func(context.Context, io.Writer) er
 }
 
 // cancelCurrent asks the running operation to stop. It reports whether one was running.
-func (m *jobManager) cancelCurrent() bool {
+func (m *jobManager) cancelCurrent() bool { //nolint:unused // used by the native window (Windows, macOS with cgo)
 	m.mu.Lock()
 	j := m.cur
 	m.mu.Unlock()
