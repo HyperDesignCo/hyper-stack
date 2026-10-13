@@ -9,6 +9,8 @@ basedir = {{.BaseDir}}
 datadir = {{.DataDir}}
 port = {{.Port}}
 bind-address = 127.0.0.1
+# No reverse-DNS lookup of connecting clients: it can stall every login for seconds.
+skip-name-resolve
 {{if .Socket}}socket = {{.Socket}}
 {{end}}mysqlx = OFF
 character-set-server = utf8mb4

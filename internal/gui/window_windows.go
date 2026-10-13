@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"os"
 	"os/exec"
@@ -28,7 +29,18 @@ import (
 // Available reports whether the native window exists on this platform.
 func Available() bool { return true }
 
-const showEventName = `Local\HyperStackShowWindow`
+// instanceSuffix keeps separate Hyper Stack homes (HYPER_HOME, used for testing) apart.
+func instanceSuffix() string {
+	h := os.Getenv("HYPER_HOME")
+	if h == "" {
+		return ""
+	}
+	sum := fnv.New32a()
+	_, _ = sum.Write([]byte(strings.ToLower(h)))
+	return fmt.Sprintf("-%08x", sum.Sum32())
+}
+
+func showEventName() string { return `Local\HyperStackShowWindow` + instanceSuffix() }
 
 var instanceMutex windows.Handle
 
@@ -36,7 +48,7 @@ var instanceMutex windows.Handle
 // another Hyper Stack window process already exists, in which case the caller
 // should call Show and exit instead of opening a second window.
 func Acquire() bool {
-	name, err := windows.UTF16PtrFromString(`Local\HyperStackWindowInstance`)
+	name, err := windows.UTF16PtrFromString(`Local\HyperStackWindowInstance` + instanceSuffix())
 	if err != nil {
 		return true
 	}
@@ -55,7 +67,7 @@ func Acquire() bool {
 
 // Show asks the running window to come to the front. It reports whether one was running.
 func Show() bool {
-	name, err := windows.UTF16PtrFromString(showEventName)
+	name, err := windows.UTF16PtrFromString(showEventName())
 	if err != nil {
 		return false
 	}
@@ -384,7 +396,7 @@ func (w *window) openWeb() {
 
 // watchShowEvent lets a second "hyper ui" bring this window to the front.
 func (w *window) watchShowEvent() {
-	name, err := windows.UTF16PtrFromString(showEventName)
+	name, err := windows.UTF16PtrFromString(showEventName())
 	if err != nil {
 		return
 	}

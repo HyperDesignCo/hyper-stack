@@ -341,9 +341,11 @@ func (a *App) Up(ctx context.Context, dir string) error {
 	if err := a.checkPorts(); err != nil {
 		return err
 	}
+	a.say("  preparing PHP %s", cfg.PHP)
 	if _, err := a.RT.EnsurePHP(ctx, cfg.PHP, cfg.Extensions); err != nil {
 		return err
 	}
+	a.say("  checking MySQL")
 	if err := a.RT.EnsureMySQL(ctx); err != nil {
 		return err
 	}
@@ -367,12 +369,14 @@ func (a *App) Up(ctx context.Context, dir string) error {
 	if err := a.saveSite(site); err != nil {
 		return err
 	}
+	a.say("  updating the hosts file and phpMyAdmin")
 	if err := a.syncHosts(); err != nil {
 		return err
 	}
 	if err := a.ensurePMA(ctx); err != nil {
 		return err
 	}
+	a.say("  starting the web server")
 	if err := a.RT.RegisterSite(ctx, rt.Site{Name: cfg.Name, Domain: cfg.Domain, Root: root, WebRoot: webRoot, PHP: cfg.PHP, CertPEM: cert, KeyPEM: key}); err != nil {
 		return err
 	}

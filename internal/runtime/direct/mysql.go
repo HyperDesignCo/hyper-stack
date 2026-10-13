@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hyperdesign/hyper-stack/internal/process"
 	rt "github.com/hyperdesign/hyper-stack/internal/runtime"
@@ -157,7 +158,10 @@ func (r *Runtime) ResetDatabase(ctx context.Context, db string) error {
 
 // mysql runs one statement. extra is an optional single flag.
 func (r *Runtime) mysql(ctx context.Context, pw, extra, sql string) (string, error) {
-	args := []string{"--defaults-file=" + r.myCnf(), "-uroot", "-N", "-B"}
+	// A server that accepts the connection and then stalls must not hang the caller forever.
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	args := []string{"--defaults-file=" + r.myCnf(), "--connect-timeout=10", "-uroot", "-N", "-B"}
 	if extra != "" {
 		args = append(args, extra)
 	}
@@ -169,6 +173,9 @@ func (r *Runtime) mysql(ctx context.Context, pw, extra, sql string) (string, err
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return out.String(), fmt.Errorf("MySQL did not answer within 45 seconds (see the mysql logs in the logs folder)")
+		}
 		return out.String(), fmt.Errorf("mysql: %w: %s", err, strings.TrimSpace(tail(out.String(), 300)))
 	}
 	return out.String(), nil
