@@ -4,6 +4,7 @@ package gui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,6 +29,29 @@ import (
 func Available() bool { return true }
 
 const showEventName = `Local\HyperStackShowWindow`
+
+var instanceMutex windows.Handle
+
+// Acquire claims the right to be the one running window. It returns false when
+// another Hyper Stack window process already exists, in which case the caller
+// should call Show and exit instead of opening a second window.
+func Acquire() bool {
+	name, err := windows.UTF16PtrFromString(`Local\HyperStackWindowInstance`)
+	if err != nil {
+		return true
+	}
+	h, err := windows.CreateMutex(nil, false, name)
+	if h == 0 {
+		return true // cannot tell: do not block the user
+	}
+	if errors.Is(err, windows.ERROR_ALREADY_EXISTS) {
+		_ = windows.CloseHandle(h)
+		return false
+	}
+	instanceMutex = h // held until this process exits
+	runtime.KeepAlive(instanceMutex)
+	return true
+}
 
 // Show asks the running window to come to the front. It reports whether one was running.
 func Show() bool {
@@ -142,6 +166,7 @@ type window struct {
 	setInfo                                        *walk.TextEdit
 	lastJobStatus                                  string
 	lastLog                                        string
+	lastLabel                                      string
 	selected                                       string
 	shownPHP, shownLogs                            []string
 	ignoreToggle                                   bool
@@ -158,6 +183,9 @@ func Run(b Backend, show bool, onQuit func()) error {
 	if err := w.build(); err != nil {
 		return err
 	}
+	// Closing the window must not end the program: it hides to the tray (see tray()).
+	// Quit exits through walk.App().Exit.
+	w.mw.SetExitOnClose(false)
 	if err := w.tray(); err != nil {
 		return err
 	}
@@ -516,7 +544,10 @@ func (w *window) showJob(title, st, errText, log string) {
 	case "failed":
 		label = title + "  (failed): " + firstLine(errText)
 	}
-	if label != w.jobTitle.Text() {
+	// Only touch the panel when the operation changed, so a note about a quick
+	// action (Open site...) is not overwritten by the previous operation.
+	if label != w.lastLabel {
+		w.lastLabel = label
 		_ = w.jobTitle.SetText(label)
 	}
 	if log != w.lastLog {
@@ -539,6 +570,18 @@ func (w *window) showJob(title, st, errText, log string) {
 	}
 }
 
+// pollNow shows the operation that just started without waiting for the next tick.
+func (w *window) pollNow() {
+	title, st, errText, log := w.b.Jobs.Snapshot()
+	w.showJob(title, st, errText, log)
+}
+
+// note shows a short message about a quick action (one that is not a background operation).
+func (w *window) note(title, text string) {
+	_ = w.jobTitle.SetText(title)
+	_ = w.jobLog.SetText(text)
+}
+
 func firstLine(s string) string {
 	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
 		return s[:i]
@@ -558,7 +601,9 @@ func (w *window) run(title string, fn func(a *app.App) error) {
 	})
 	if err != nil {
 		msgBox(w.mw, "Hyper Stack", err.Error(), walk.MsgBoxIconInformation)
+		return
 	}
+	w.pollNow()
 }
 
 // runCtx is run for operations that take a context.
@@ -573,7 +618,9 @@ func (w *window) runCtx(title string, fn func(ctx context.Context, a *app.App) e
 	})
 	if err != nil {
 		msgBox(w.mw, "Hyper Stack", err.Error(), walk.MsgBoxIconInformation)
+		return
 	}
+	w.pollNow()
 }
 
 // ---------------------------------------------------------------- actions
@@ -619,9 +666,19 @@ func (w *window) stopSelected() {
 }
 
 func (w *window) openSite() {
-	if s, ok := w.current(); ok && s.URL != "" && w.b.OpenURL != nil {
-		_ = w.b.OpenURL(s.URL)
+	s, ok := w.current()
+	if !ok || s.URL == "" || w.b.OpenURL == nil {
+		return
 	}
+	if !s.Online {
+		w.note("Open site", s.Name+" is not running. Press Start first.")
+		return
+	}
+	if err := w.b.OpenURL(s.URL); err != nil {
+		w.note("Open site (failed)", err.Error())
+		return
+	}
+	w.note("Open site", "Opened "+s.URL+" in your browser.")
 }
 
 func (w *window) openPMA() {
@@ -632,7 +689,11 @@ func (w *window) openPMA() {
 
 func (w *window) openFolder() {
 	if s, ok := w.current(); ok {
-		_ = exec.Command("explorer", s.Root).Start()
+		if err := exec.Command("explorer", s.Root).Start(); err != nil {
+			w.note("Open folder (failed)", err.Error())
+			return
+		}
+		w.note("Open folder", "Opened "+s.Root)
 	}
 }
 

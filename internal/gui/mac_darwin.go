@@ -38,6 +38,9 @@ func init() {
 // Available reports whether the native window exists on this platform.
 func Available() bool { return true }
 
+// Acquire always succeeds here: hyper ui checks the pid file and signals the running window.
+func Acquire() bool { return true }
+
 // Show brings a running window to the front. Another process cannot do that
 // here, so a second "hyper ui" is handled by the caller opening the browser.
 func Show() bool { return false }

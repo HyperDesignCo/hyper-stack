@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperdesign/hyper-stack/internal/app"
 	"github.com/hyperdesign/hyper-stack/internal/config"
+	"github.com/hyperdesign/hyper-stack/internal/gui"
 	"github.com/hyperdesign/hyper-stack/internal/process"
 )
 
@@ -36,6 +37,13 @@ func Launch(p config.Paths, exe string, openBrowser, startup bool) (string, erro
 		return "", err
 	}
 	sp := spec(p, exe)
+	if openBrowser && !process.Running(sp) && showWindow(p) {
+		// A window is already open (started some other way): bring it forward.
+		if in, ok := readInstance(p); ok {
+			return fmt.Sprintf("http://127.0.0.1:%d/?t=%s", in.Port, in.Token), nil
+		}
+		return "", nil
+	}
 	if process.Running(sp) {
 		if in, ok := readInstance(p); ok {
 			u := fmt.Sprintf("http://127.0.0.1:%d/?t=%s", in.Port, in.Token)
@@ -81,6 +89,13 @@ func readInstance(p config.Paths) (instance, bool) {
 func Serve(p config.Paths, openBrowser, startup bool) error {
 	if err := ensureHome(p); err != nil {
 		return err
+	}
+	if !gui.Acquire() {
+		// Hyper Stack is already running: bring its window forward instead of opening another.
+		if openBrowser {
+			gui.Show()
+		}
+		return nil
 	}
 	// Re-read the install location on every request: the install wizard can
 	// choose the folder while the dashboard is already running.

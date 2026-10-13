@@ -14,3 +14,6 @@ func Available() bool { return false }
 
 // Show asks a running window to come to the front.
 func Show() bool { return false }
+
+// Acquire always succeeds here: the caller checks for a running instance itself.
+func Acquire() bool { return true }
