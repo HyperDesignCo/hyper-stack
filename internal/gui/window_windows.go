@@ -187,14 +187,14 @@ func (w *window) build() error {
 		Layout:   VBox{Margins: Margins{Left: 10, Top: 10, Right: 10, Bottom: 10}},
 		Children: []Widget{
 			Composite{
-				Layout: HBox{MarginsZero: true},
+				Layout: HBox{Margins: Margins{Left: 0, Top: 6, Right: 0, Bottom: 6}},
 				Children: []Widget{
 					Label{AssignTo: &w.status, Text: "Loading..."},
 					HSpacer{},
-					PushButton{AssignTo: &w.btnInstall, Text: "Install...", Visible: false, OnClicked: w.install},
-					PushButton{AssignTo: &w.btnUpAll, Text: "Start all", OnClicked: w.startAll},
-					PushButton{AssignTo: &w.btnStopAll, Text: "Stop all", OnClicked: w.stopAll},
-					PushButton{Text: "Open www folder", OnClicked: func() { w.run("Open www folder", func(a *app.App) error { return a.OpenWWW() }) }},
+					PushButton{AssignTo: &w.btnInstall, MinSize: Size{Width: 100, Height: 30}, Text: "Install...", Visible: false, OnClicked: w.install},
+					PushButton{AssignTo: &w.btnUpAll, MinSize: Size{Width: 100, Height: 30}, Text: "Start all", OnClicked: w.startAll},
+					PushButton{AssignTo: &w.btnStopAll, MinSize: Size{Width: 100, Height: 30}, Text: "Stop all", OnClicked: w.stopAll},
+					PushButton{MinSize: Size{Width: 130, Height: 30}, Text: "Open www folder", OnClicked: func() { w.run("Open www folder", func(a *app.App) error { return a.OpenWWW() }) }},
 				},
 			},
 			TabWidget{
