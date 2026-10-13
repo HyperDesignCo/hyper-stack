@@ -780,10 +780,15 @@ func (w *window) install() {
 		dir = w.state.DefaultDir
 	}
 	st := w.state.Settings
+	if !w.state.Installed {
+		st.HTTPPort, st.HTTPSPort, st.MySQLPort, _ = suggestPorts(st.HTTPPort, st.HTTPSPort, st.MySQLPort)
+	}
 	var dlg *walk.Dialog
 	var dirEdit *walk.LineEdit
 	var httpN, httpsN, mysqlN *walk.NumberEdit
 	accepted := false
+	var chosen string
+	var ports app.Ports
 	err := Dialog{
 		AssignTo: &dlg, Title: "Install Hyper Stack", MinSize: Size{Width: 520, Height: 260},
 		Layout: VBox{},
@@ -806,7 +811,22 @@ func (w *window) install() {
 			Label{Text: "It downloads about 300 MB and asks for administrator permission once, to trust the local certificate and edit the hosts file."},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 				HSpacer{},
-				PushButton{Text: "Install", OnClicked: func() { accepted = true; dlg.Accept() }},
+				PushButton{Text: "Install", OnClicked: func() {
+					// Read the fields now: they are gone once the dialog closes.
+					dirText := strings.TrimSpace(dirEdit.Text())
+					if !w.state.Configured {
+						abs, err := config.ValidateInstallDir(dirText)
+						if err != nil {
+							msgBox(dlg, "Install Hyper Stack", err.Error(), walk.MsgBoxIconWarning)
+							return // keep the dialog open so the folder can be changed
+						}
+						dirText = abs
+					}
+					chosen = dirText
+					ports = app.Ports{HTTP: int(httpN.Value()), HTTPS: int(httpsN.Value()), MySQL: int(mysqlN.Value())}
+					accepted = true
+					dlg.Accept()
+				}},
 				PushButton{Text: "Cancel", OnClicked: func() { dlg.Cancel() }},
 			}},
 		},
@@ -818,16 +838,6 @@ func (w *window) install() {
 	if !accepted {
 		return
 	}
-	chosen := strings.TrimSpace(dirEdit.Text())
-	if !w.state.Configured {
-		abs, err := config.ValidateInstallDir(chosen)
-		if err != nil {
-			msgBox(w.mw, "Install Hyper Stack", err.Error(), walk.MsgBoxIconWarning)
-			return
-		}
-		chosen = abs
-	}
-	ports := app.Ports{HTTP: int(httpN.Value()), HTTPS: int(httpsN.Value()), MySQL: int(mysqlN.Value())}
 	w.runCtx("Install Hyper Stack", func(ctx context.Context, a *app.App) error { return a.InstallTo(ctx, chosen, ports) })
 }
 

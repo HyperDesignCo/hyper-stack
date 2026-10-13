@@ -516,11 +516,15 @@ func (w *macWindow) install() {
 	if st.Configured {
 		editable = 0
 	}
+	hp, sp, mp := st.Settings.HTTPPort, st.Settings.HTTPSPort, st.Settings.MySQLPort
+	if !st.Installed {
+		hp, sp, mp, _ = suggestPorts(hp, sp, mp)
+	}
 	d := cstr(dir)
 	defer C.free(unsafe.Pointer(d))
 	var outDir *C.char
 	var ports [3]C.int
-	ok := C.hs_install_dialog(d, C.int(editable), C.int(st.Settings.HTTPPort), C.int(st.Settings.HTTPSPort), C.int(st.Settings.MySQLPort), &outDir, &ports[0])
+	ok := C.hs_install_dialog(d, C.int(editable), C.int(hp), C.int(sp), C.int(mp), &outDir, &ports[0])
 	if ok == 0 {
 		return
 	}
