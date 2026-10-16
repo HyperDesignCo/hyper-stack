@@ -21,13 +21,38 @@ func PortOwner(port int) (Owner, bool) {
 	if runtime.GOOS != "windows" {
 		return unixPortOwner(port)
 	}
-	script := fmt.Sprintf(`$c = Get-NetTCPConnection -LocalPort %d -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1;`+
-		`if ($c) { $p = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue; "$($c.OwningProcess)|$($p.ProcessName)|$($p.Path)" }`, port)
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	return windowsPortOwner(port)
+}
+
+// windowsPortOwner asks netstat and the Windows process API. (It used to run
+// PowerShell's Get-NetTCPConnection, which can stall for a long time and then
+// kept the whole Start button waiting.)
+func windowsPortOwner(port int) (Owner, bool) {
+	out, err := netstatListening()
 	if err != nil {
 		return Owner{}, false
 	}
-	return parseOwner(string(out))
+	pid := listenPID(out, port)
+	if pid == 0 {
+		return Owner{}, false
+	}
+	name, path := processInfo(pid)
+	return Owner{PID: pid, Name: name, Path: path}, true
+}
+
+// listenPID finds the process listening on port in "netstat -ano -p TCP" output.
+func listenPID(out string, port int) int {
+	suffix := ":" + strconv.Itoa(port)
+	for _, l := range strings.Split(out, "\n") {
+		f := strings.Fields(l)
+		if len(f) < 5 || !strings.EqualFold(f[0], "TCP") || !strings.EqualFold(f[3], "LISTENING") || !strings.HasSuffix(f[1], suffix) {
+			continue
+		}
+		if pid, err := strconv.Atoi(f[4]); err == nil {
+			return pid
+		}
+	}
+	return 0
 }
 
 func parseOwner(s string) (Owner, bool) {
