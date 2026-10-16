@@ -216,3 +216,16 @@ func TestAlgoFollowsDigestLength(t *testing.T) {
 		t.Error("128 hex digits is SHA-512, 64 is SHA-256")
 	}
 }
+
+// skip-name-resolve breaks root@localhost for TCP logins from 127.0.0.1
+// (ERROR 1130, found on a real machine), so the config must never carry it.
+func TestMyCnfKeepsNameResolution(t *testing.T) {
+	r := asMac(t)
+	if err := r.writeMyCnf(); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(r.myCnf())
+	if strings.Contains(string(b), "skip-name-resolve") {
+		t.Errorf("my.cnf must not use skip-name-resolve:\n%s", b)
+	}
+}
