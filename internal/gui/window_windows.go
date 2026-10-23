@@ -15,10 +15,12 @@ import (
 	"slices"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/tailscale/walk"
 	. "github.com/tailscale/walk/declarative" //nolint:staticcheck // the declarative UI reads best dot-imported
+	"github.com/tailscale/win"
 	"golang.org/x/sys/windows"
 
 	"github.com/hyperdesign/hyper-stack/internal/app"
@@ -196,6 +198,7 @@ func Run(b Backend, show bool, onQuit func()) error {
 	if err := w.build(); err != nil {
 		return err
 	}
+	fixControlIDs(w.mw.Handle())
 	// Closing the window must not end the program: it hides to the tray (see tray()).
 	// Quit exits through walk.App().Exit.
 	w.mw.SetExitOnClose(false)
@@ -913,6 +916,7 @@ func (w *window) install() {
 	if err != nil {
 		return
 	}
+	fixControlIDs(dlg.Handle())
 	dlg.Run()
 	if !accepted {
 		return
@@ -923,4 +927,37 @@ func (w *window) install() {
 // msgBox shows a simple message box.
 func msgBox(owner walk.Form, title, text string, style walk.MsgBoxStyle) int {
 	return walk.MsgBox(owner, title, text, style) //nolint:staticcheck // the classic box is all that is needed here
+}
+
+// fixControlIDs gives every button and combo box under root a unique control ID.
+// walk leaves the controls on tab pages with ID 0, and a click (WM_COMMAND) finds
+// its sender by ID: every one of those buttons then ran the first button's action
+// (Stop, Open site, phpMyAdmin... all started the project).
+func fixControlIDs(root win.HWND) {
+	var all []win.HWND
+	collect := syscall.NewCallback(func(h win.HWND, _ uintptr) uintptr {
+		all = append(all, h)
+		return 1
+	})
+	win.EnumChildWindows(root, collect, 0)
+	used := map[int32]bool{}
+	for _, h := range all {
+		used[win.GetWindowLong(h, win.GWL_ID)] = true
+	}
+	next := int32(5000)
+	for _, h := range all {
+		if win.GetWindowLong(h, win.GWL_ID) != 0 {
+			continue
+		}
+		var buf [64]uint16
+		n, _ := windows.GetClassName(windows.HWND(h), &buf[0], int32(len(buf)))
+		switch strings.ToLower(windows.UTF16ToString(buf[:n])) {
+		case "button", "combobox":
+			for used[next] {
+				next++
+			}
+			win.SetWindowLong(h, win.GWL_ID, next)
+			used[next] = true
+		}
+	}
 }
