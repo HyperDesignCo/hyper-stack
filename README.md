@@ -4,18 +4,20 @@ A Laragon/XAMPP-style local environment for Hyper Design developers on Windows a
 
 Status: **Windows and macOS are supported.** The macOS version is tested on every commit on a real GitHub macOS (Apple Silicon) machine: install, trusted HTTPS, PHP switching, moving the install and uninstall. See [macOS](#macos) for what differs.
 
-Current release: **v0.8.1** (native window on Windows and macOS). Both installers fetch the latest release; to pin this one, pass `-Version v0.8.1` (Windows) or `--version v0.8.1` (macOS).
+Hyper Stack is open source and free to use. You do not need a GitHub account to install it: the installers below download the latest release from this repository's [Releases](https://github.com/HyperDesignCo/hyper-stack/releases) page and check its SHA-256 checksum before installing anything.
+
+> **Heads up:** release v0.8.0 has a bug in the window's right-hand buttons (every button runs *Start*). It is fixed in the source on `main`; until the next release, use the command line (`hyper up`, `hyper down`, ...) or build from source (see [Develop](#develop)).
 
 ## Install (Windows)
 
-While this repository is private you need the GitHub CLI signed in (`gh auth login`) and access to the `HyperDesignCo` organization.
+Open **PowerShell** and run:
 
 ```powershell
-gh release download --repo HyperDesignCo/hyper-stack --pattern install.ps1 --output install.ps1 --clobber
+irm https://github.com/HyperDesignCo/hyper-stack/releases/latest/download/install.ps1 -OutFile install.ps1
 powershell -ExecutionPolicy Bypass -File .\install.ps1 -Install
 ```
 
-Options: `-Version v0.8.1`, `-Autostart` (start at sign-in), `-Install` (also run `hyper install`).
+Options: `-Version v0.8.0` (install a specific release), `-Autostart` (start at sign-in), `-Install` (also run `hyper install`).
 
 It puts `hyper.exe` on your PATH, adds a **Hyper Stack** Start menu entry, then asks **where to install**:
 
@@ -35,12 +37,14 @@ hyper install --dir D:\Hyper --http-port 8080 --https-port 8443 --mysql-port 330
 
 ## macOS
 
+Open **Terminal** and run:
+
 ```bash
-gh release download --repo HyperDesignCo/hyper-stack --pattern install.sh --output install.sh --clobber
+curl -fsSL https://github.com/HyperDesignCo/hyper-stack/releases/latest/download/install.sh -o install.sh
 bash install.sh --install
 ```
 
-Options: `--version v0.8.1`, `--autostart` (start at login), `--install` (also run `hyper install`, about 400 MB). Without `--install`, open a new Terminal and run `hyper install` yourself.
+Options: `--version v0.8.0` (install a specific release), `--autostart` (start at login), `--install` (also run `hyper install`, about 400 MB). Without `--install`, open a new Terminal and run `hyper install` yourself.
 
 It puts `hyper` on your PATH (new Terminal windows), then asks where to install, like on Windows. macOS asks for your password **once** (to trust the local certificate and allow hosts-file edits).
 

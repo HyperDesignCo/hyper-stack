@@ -1,9 +1,9 @@
 #!/bin/bash
 # Hyper Stack installer for macOS (no administrator rights needed for this step).
 #
-# Private repo (needs the GitHub CLI signed in, gh auth login):
-#   gh release download --repo HyperDesignCo/hyper-stack --pattern install.sh --output install.sh --clobber
-#   bash install.sh
+# The repository is public: no GitHub account is needed.
+#   curl -fsSL https://github.com/HyperDesignCo/hyper-stack/releases/latest/download/install.sh -o install.sh
+#   bash install.sh --install
 #
 # Options:  --version v0.6.0   install a specific release (default: latest)
 #           --autostart        start Hyper Stack when you log in

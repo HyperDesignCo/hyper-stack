@@ -1,12 +1,9 @@
 <#
   Hyper Stack installer for Windows (no administrator rights needed for this step).
 
-  Public repo, one line in PowerShell:
-    irm https://github.com/HyperDesignCo/hyper-stack/releases/latest/download/install.ps1 | iex
-
-  Private repo (needs the GitHub CLI signed in, gh auth login):
-    gh release download --repo HyperDesignCo/hyper-stack --pattern install.ps1 --output install.ps1 --clobber
-    powershell -ExecutionPolicy Bypass -File .\install.ps1
+  The repository is public: no GitHub account is needed.
+    irm https://github.com/HyperDesignCo/hyper-stack/releases/latest/download/install.ps1 -OutFile install.ps1
+    powershell -ExecutionPolicy Bypass -File .\install.ps1 -Install
 
   Options:  -Version v0.1.0   install a specific release (default: latest)
             -Autostart        start the tray icon when you log in
