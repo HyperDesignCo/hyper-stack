@@ -6,7 +6,7 @@ Status: **Windows and macOS are supported.** The macOS version is tested on ever
 
 Hyper Stack is open source and free to use. You do not need a GitHub account to install it: the installers below download the latest release from this repository's [Releases](https://github.com/HyperDesignCo/hyper-stack/releases) page and check its SHA-256 checksum before installing anything.
 
-> **Heads up:** release v0.8.0 has a bug in the window's right-hand buttons (every button runs *Start*). It is fixed in the source on `main`; until the next release, use the command line (`hyper up`, `hyper down`, ...) or build from source (see [Develop](#develop)).
+Current release: **v0.8.2**. The Windows and macOS programs are built by GitHub Actions from the tagged source.
 
 ## Install (Windows)
 
@@ -17,7 +17,7 @@ irm https://github.com/HyperDesignCo/hyper-stack/releases/latest/download/instal
 powershell -ExecutionPolicy Bypass -File .\install.ps1 -Install
 ```
 
-Options: `-Version v0.8.0` (install a specific release), `-Autostart` (start at sign-in), `-Install` (also run `hyper install`).
+Options: `-Version v0.8.2` (install a specific release), `-Autostart` (start at sign-in), `-Install` (also run `hyper install`).
 
 It puts `hyper.exe` on your PATH, adds a **Hyper Stack** Start menu entry, then asks **where to install**:
 
@@ -44,7 +44,7 @@ curl -fsSL https://github.com/HyperDesignCo/hyper-stack/releases/latest/download
 bash install.sh --install
 ```
 
-Options: `--version v0.8.0` (install a specific release), `--autostart` (start at login), `--install` (also run `hyper install`, about 400 MB). Without `--install`, open a new Terminal and run `hyper install` yourself.
+Options: `--version v0.8.2` (install a specific release), `--autostart` (start at login), `--install` (also run `hyper install`, about 400 MB). Without `--install`, open a new Terminal and run `hyper install` yourself.
 
 It puts `hyper` on your PATH (new Terminal windows), then asks where to install, like on Windows. macOS asks for your password **once** (to trust the local certificate and allow hosts-file edits).
 
