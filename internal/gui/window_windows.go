@@ -231,14 +231,16 @@ func (w *window) build() error {
 		Layout:   VBox{Margins: Margins{Left: 10, Top: 10, Right: 10, Bottom: 10}},
 		Children: []Widget{
 			Composite{
-				Layout: HBox{Margins: Margins{Left: 0, Top: 6, Right: 0, Bottom: 6}},
+				Layout:  HBox{Margins: Margins{Left: 0, Top: 4, Right: 0, Bottom: 8}},
+				MinSize: Size{Height: 48},
+				MaxSize: Size{Height: 48},
 				Children: []Widget{
-					Label{AssignTo: &w.status, Text: "Loading..."},
+					Label{AssignTo: &w.status, Text: "Loading...", Alignment: AlignHNearVCenter},
 					HSpacer{},
-					PushButton{AssignTo: &w.btnInstall, MinSize: Size{Width: 100, Height: 30}, Text: "Install...", Visible: false, OnClicked: w.install},
-					PushButton{AssignTo: &w.btnUpAll, MinSize: Size{Width: 100, Height: 30}, Text: "Start all", OnClicked: w.startAll},
-					PushButton{AssignTo: &w.btnStopAll, MinSize: Size{Width: 100, Height: 30}, Text: "Stop all", OnClicked: w.stopAll},
-					PushButton{MinSize: Size{Width: 130, Height: 30}, Text: "Open www folder", OnClicked: func() { w.run("Open www folder", func(a *app.App) error { return a.OpenWWW() }) }},
+					PushButton{AssignTo: &w.btnInstall, MinSize: Size{Width: 100}, MaxSize: Size{Height: 32}, Text: "Install...", Visible: false, OnClicked: w.install},
+					PushButton{AssignTo: &w.btnUpAll, MinSize: Size{Width: 100}, MaxSize: Size{Height: 32}, Text: "Start all", OnClicked: w.startAll},
+					PushButton{AssignTo: &w.btnStopAll, MinSize: Size{Width: 100}, MaxSize: Size{Height: 32}, Text: "Stop all", OnClicked: w.stopAll},
+					PushButton{MinSize: Size{Width: 130}, MaxSize: Size{Height: 32}, Text: "Open www folder", OnClicked: func() { w.run("Open www folder", func(a *app.App) error { return a.OpenWWW() }) }},
 				},
 			},
 			TabWidget{

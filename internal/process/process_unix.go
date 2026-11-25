@@ -21,3 +21,6 @@ func terminate(pid int, tree bool) error {
 	}
 	return syscall.Kill(-pid, syscall.SIGTERM)
 }
+
+// isProgram is always true here: pid reuse is rare and the check is Windows-only.
+func isProgram(pid int, bin string) bool { return true }

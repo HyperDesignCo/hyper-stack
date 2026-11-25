@@ -3,6 +3,8 @@ package process
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -111,5 +113,28 @@ func TestTreeStopKillsChildren(t *testing.T) {
 	}
 	if Running(child) {
 		t.Skip("child survived a tree stop on this platform") // Unix signals the process group only
+	}
+}
+
+// A pid file left behind whose number now belongs to another program (Windows
+// reuses pids) must not count as running, and must not be stopped.
+func TestStalePidOfAnotherProgramIsNotRunning(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("pid reuse check is Windows-only")
+	}
+	d := t.TempDir()
+	s := Spec{Name: "php", Bin: filepath.Join(d, "php-cgi.exe"), RunDir: d}
+	// the test binary itself is alive but is not php-cgi.exe
+	if err := os.WriteFile(s.pidPath(), []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if Running(s) {
+		t.Fatal("a pid that belongs to another program must not count as running")
+	}
+	if err := Stop(s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(s.pidPath()); err == nil {
+		t.Fatal("the stale pid file should be removed")
 	}
 }

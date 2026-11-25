@@ -5,8 +5,11 @@ package process
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
+	"unsafe"
 )
 
 const (
@@ -50,4 +53,27 @@ func terminate(pid int, tree bool) error {
 		return p.Kill()
 	}
 	return nil
+}
+
+var queryImageName = syscall.NewLazyDLL("kernel32.dll").NewProc("QueryFullProcessImageNameW")
+
+// isProgram reports whether pid runs the program bin. Windows reuses process ids,
+// so a stale pid file can point at an unrelated process. When the image cannot be
+// read the answer is "yes", as before.
+func isProgram(pid int, bin string) bool {
+	if bin == "" {
+		return true
+	}
+	h, err := syscall.OpenProcess(processQueryLimited, false, uint32(pid)) //nolint:gosec // process ids fit in uint32
+	if err != nil {
+		return true
+	}
+	defer func() { _ = syscall.CloseHandle(h) }()
+	buf := make([]uint16, 1024)
+	n := uint32(len(buf))
+	r, _, _ := queryImageName.Call(uintptr(h), 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&n))) //nolint:gosec // Windows API call
+	if r == 0 {
+		return true
+	}
+	return strings.EqualFold(filepath.Base(syscall.UTF16ToString(buf[:n])), filepath.Base(bin))
 }

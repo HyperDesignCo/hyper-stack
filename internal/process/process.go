@@ -74,13 +74,15 @@ func PID(s Spec) int {
 // Running reports whether the recorded pid is alive.
 func Running(s Spec) bool {
 	pid := PID(s)
-	return pid > 0 && alive(pid)
+	return pid > 0 && alive(pid) && isProgram(pid, s.Bin)
 }
 
 // Stop terminates the process and waits briefly for it to exit.
 func Stop(s Spec) error {
 	pid := PID(s)
-	if pid == 0 || !alive(pid) {
+	// A pid file can outlive its process, and Windows reuses pids: never stop
+	// (or treat as ours) a process that is not the program we started.
+	if pid == 0 || !alive(pid) || !isProgram(pid, s.Bin) {
 		_ = os.Remove(s.pidPath())
 		return nil
 	}
