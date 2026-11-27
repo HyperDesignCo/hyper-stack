@@ -164,3 +164,7 @@ go test ./...
 ```
 
 `internal/cli` is flags only, `internal/app` is the logic, `internal/runtime/direct` manages the downloaded binaries. `HYPER_HOME` points the tool at a throwaway home folder, which is how the install flow is tested without touching a real install. See `docs/RELEASING.md` to publish a version.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Free to use, change and share, including for commercial work.
